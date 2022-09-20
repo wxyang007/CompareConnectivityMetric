@@ -17,7 +17,8 @@ CA_PA_only <- CA_PA[CA_PA$ifPA == 1, ]
 test <- CA_PA_only
 #test <- head(CA_PA, 10)[,2]
 
-# metric 1: nearest neighbor distance
+# metric 1: nearest neighbor distance <-- this could be done by doing something
+# with existing near tables
 # remember to fix geometry before running this step
 nearest <- st_nearest_feature(test)
 dist <- st_distance(test,test[nearest,], by_element=TRUE)
