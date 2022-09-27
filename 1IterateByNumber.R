@@ -1,3 +1,7 @@
+# Author: Wenxin Yang
+# Date: Sept, 2022
+
+# read in the packages
 library(sf)
 library(raster)
 library(rgdal)
@@ -6,38 +10,47 @@ library(dplyr)
 library(spatialEco)
 library(Makurhini)
 library(landscapemetrics)
-# NOTE: there might be sth. wrong with the shapefile.
-# It might have been cropped by county boundary or sth.
+
 
 #=========Step1 preprocessing =========
-# read in shpfile with: pa and non pa lands within CA and in 230km buffer
+# read in shapefile with: pa and non pa lands within CA and in 230km buffer
 # on my laptop
-wd <- file.path(getwd(), 'desktop', 'AProtconn','data','CA')
+setwd('~/')
+wd <- file.path(getwd(), 'Desktop', 'AProtconn','data','CA')
 setwd(wd)
 shp <- read_sf('ca_pa_file_fixed.shp')
 # on desktop
 # shp <- read_sf('C:/Users/wyang80/Desktop/CONN_MEASURE/data/CA/ca_pa_file_fixed.shp')
 summary(shp$OBJECTID)
 
+ca_bound <- read_sf('ca-state-boundary/CA_State_TIGER2016.shp')
+
 # filter out only the pas in CA, these are the patches to iterate with
 ca_pa <- shp[which((shp$ifPA == 1) & (shp$STATEFP == '06')), ]
+ca_bound_reproj <- st_transform(ca_bound, crs(ca_pa))
 # somehow filter out the inverse create new NAs, so have to export in GIS softwares
 # before reading in
 # non_ca_pa <- shp[(shp$ifPA != 1) | (shp$STATEFP != '06'), ]
 # on my laptop
-non_ca_pa <- read_sf('non_ca_pa/non_ca_pa.shp')
+ca_non_pa <- read_sf('non_ca_pa/non_ca_pa.shp')
+ca_non_pa$ifTarget = 0
+# ca_non_pa$ID = -1
 # on desktop
 # non_ca_pa <- read_sf('C:/Users/wyang80/Desktop/CONN_MEASURE/data/CA/non_ca_pa.shp')
-summary(non_ca_pa$OBJECTID)
-summary(ca_pa$OBJECTID)
-ca_pa$ID <- 1:nrow(ca_pa)
+# ca_pa$ID <- 1:nrow(ca_pa)
 n_ca_pa <- nrow(ca_pa)
 
 
 # read in the near table
 # on my laptop
 ca_neartab <- read.csv('near_tab_CA.csv')
+# WARNING: might want to label them for ca, non-ca, pa, non-pa
+# could do this by linking back to the pa shapefile.
 # on desktop
+
+# create a table to store all the iterations
+iters <- data.frame(matrix(ncol = 2, nrow = 0))
+colnames(iters) <- c("num_iter", "objectids_to_keep")
 
 #=========Step2 iterate by number of patches ========
 n_iter = 1
@@ -45,29 +58,34 @@ n_iter = 1
 # For every iteration, do the following:
 for (n in 1:n_iter) {
   print(n)
-  nodes_to_drop = sample(1:n_ca_pa, round(0.1*n_ca_pa), replace=F)
-  filtered_pa <- ca_pa[!ca_pa$ID %in% nodes_to_drop, ]
-  drop_pa <- ca_pa[ca_pa$ID %in% nodes_to_drop, ]
-  drop_objectids <- unique(drop_pa$OBJECTID)
   
-  # create a temporary near table that stores only kept rows
-  filtered_neartab <- ca_neartab[!ca_neartab$IN_FID %in% drop_objectids, ]
-  filtered_neartab <- filtered_neartab[!filtered_neartab$NEAR_FID %in% drop_objectids, ]
-  # filtered_neartab <- filtered_neartab[!filtered_neartab$IN_FID == filtered_neartab$NEAR_FID, ]
+  # randomly drop 10% of the nodes
+  OBJECTIDs_to_drop = sample(min(ca_pa$OBJECTID):max(ca_pa$OBJECTID), round(0.1*n_ca_pa), replace=F)
   
-  # And then calculate all the metric values
+  # PAs to keep
+  filtered_pa <- ca_pa[!ca_pa$OBJECTID %in% OBJECTIDs_to_drop, ]
+  filtered_pa$ifTarget = 1
+  OBJECTIDs_to_keep = unique(filtered_pa$OBJECTID)
+  iters[nrow(iters) + 1, ] = c(n, paste(OBJECTIDs_to_keep, collapse = ','))
+  
+  # PAs to keep and non-PAs
+  ca_w_bound <- rbind(filtered_pa, ca_non_pa)
+  dropped_pa <- ca_pa[ca_pa$OBJECTID %in% OBJECTIDs_to_drop, ]
+  
+  # create a temporary near table of only selected PAs
+  filteredpa_neartab <- ca_neartab[(ca_neartab$IN_FID %in% OBJECTIDs_to_keep) & 
+                                     (ca_neartab$NEAR_FID %in% OBJECTIDs_to_keep), ]
+  
+  
   #=====1. Vector metrics computable in R=====
   #====metric vector 1: nearest neighbor distance====
-  # WARNING: would have to consider outer boundary if do not use pre-calculated near table
+  # the computation way
   nearest <- st_nearest_feature(filtered_pa) # get which is the nearest feature
-  dist <- st_distance(filtered_pa,filtered_pa[nearest,], by_element=TRUE) # compute distance
-  # nn_d <- aggregate(NEAR_DIST ~ IN_FID, filtered_neartab, function(x) min(x)) <- sth. wrong with the near table
-  # 1.1 mean
-  mean(dist)
-  # 1.2 sd
-  sd(dist)
-  # 1.3 cv
-  sd(dist)/mean(dist)
+  dist_pa <- st_distance(filtered_pa,filtered_pa[nearest, ], by_element=TRUE) # compute distance
+  # the near table way
+  nn_d <- aggregate(NEAR_DIST ~ IN_FID, filteredpa_neartab, function(x) min(x)) # <- sth. wrong with the near table
+  # mean, sd, cv
+  # mean(dist);sd(dist);sd(dist)/mean(dist)
   
   #====metric vector 2: area of habitat within buffer====
   # WARNING: would have to take into consideration the buffered areas outside boundary...
@@ -84,62 +102,193 @@ for (n in 1:n_iter) {
     filtered_pa[x,]$int_area <- as.numeric(sum(b$area))
   }
   intersected_area <- filtered_pa$int_area
-  # 2.1 mean
-  mean(interesected_area)
-  # 2.2 standard deviation
-  sd(intersected_area)
-  # 2.3 coefficient of variation
-  sd(intersected_area)/mean(intersected_area)
+  # mean, sd, cv: can be added later
+  summary(intersected_area)
   
   #====metric vector 3: proximity index====
   prox <- proximity.index(filtered_pa, max.dist = 10000)
-  # leave the others...
-  # so one of the problems is that, some metrics are designed to be used at patch level
-  # some others are designed to be used at ladnscape level
+  # mean, sd, cv: can be added later
+  summary(prox)
   
-  #====metric vector 4: equivalent connected area=====
-  # saura's metrics are problematic! ugh! though I can save them with exported tables
+  #====metric vector 4: equivalent connected area [conefor]=====
+  p1 <- paste(conefor_exe, "-nodeFile", nodeFile, "-conFile", connectionFile, "-t",
+              typeconnection, typepairs)
+  p2 <- paste("-confAdj", thdist, paste0("-", index))
+  p0 <- "onlyoverall"
+  command_line = paste(p1, p2, p0)
+  shell(command_line, intern = TRUE)
   
-  #====metric vector 5: node betweenness centrality====
+  #====metric vector 5: flux and awf [conefor]====
   
+  #====metric vector 6: probability of connectivity [conefor]====
   
-  #====metric vector 6 and after: correlation length and others====
+  #====metric vector 7: ProtConn [conefor and R]====
+  a<- MK_ProtConn(filtered_pa, ca_bound_reproj, area_unit = "m2", distance = list(type = "edge"),
+                  distance_thresholds = 10000, probability = 0.5, transboundary = 10000,
+                  transboundary_type = "nodes", protconn_bound = FALSE)
   
+  # this script works but needs to be edited
+  # what to edit: 1) rbind filtered_pa with ca-non-pas; 2) set protconn_bound to be TRUE;
+  # 3) think about transboundary threshold; 4) get the specific value for ProtConn from the result table
   
-  #====metric: flux and awf====
+  #====metric vector 8: node betweenness centrality====
+  centrality <- MK_RMCentrality(nodes = filtered_pa,
+                                # area_unit = 'm',
+                                distance = list(type = 'edge'),
+                                distance_thresholds = 10000,
+                                probability = 0.5,
+                                write = NULL)
+  # Warning message: 
+  # In closeness(graph_nodes) :
+  #   At centrality.c:2874 : closeness centrality is not well defined for disconnected graphs
+  summary(centrality$BWC)
   
-  #====metric: probability of connectivity====
+  #====metric vector 9 and after: correlation length and others====
+  neartab_corr <- filteredpa_neartab[filteredpa_neartab$NEAR_DIST <= 10000, ]
+  neartab_corr$OBJECTID <- NULL
+  neartab_corr$NEAR_RANK <- NULL
+  neartab_corr$NEAR_DIST <- NULL
   
-  #====metric: ProtConn====
+  # create a dataframe to store 'neighbors' for each patch
+  r1 <- neartab_corr %>%
+    group_by(IN_FID) %>%
+    summarise(neighbors = list(NEAR_FID))
   
+  pa_corr <- filtered_pa[c('OBJECTID', 'ifPA', 'ifTarget', 'AREA_GEO')]
+  tab_corr <- merge(pa_corr, r1, by.x = 'OBJECTID', by.y = 'IN_FID',
+                    all.x = TRUE)
+  
+  tab_corr <- tab_corr[tab_corr$ifPA == 1, ]
+  
+  id_pa <- tab_corr$OBJECTID
+  id_pa <- id_pa[!duplicated(id_pa)]
+  li_id_pa <- list(id_pa)[[1]]
+  
+  tab_corr <- tab_corr[c('OBJECTID', 'neighbors')]
+  tab_corr$geometry <- NULL
+  tab_corr$common_neighbors <- 0
+  tab_corr$num_neighbors <- 0
+  tab_corr$pairs_neighbors <- 0
+  
+  for (ni in 1:nrow(tab_corr)){
+    i = tab_corr[ni, ]$OBJECTID
+    li_ni = tab_corr[ni, ]$neighbors[[1]]
+    li_ni_pa = Reduce(intersect, list(li_ni, li_id_pa))
+    tab_corr[ni, ]$neighbors = list(li_ni_pa)
+  }
+  
+  for (ni in 1:nrow(tab_corr)){
+    # ni = 1
+    i = tab_corr[ni, ]$OBJECTID
+    li_ni = tab_corr[ni, ]$neighbors[[1]]
+    l = length(li_ni)
+    li_cni = list()
+    m = 0
+    n = 0
+    if (length(li_ni) > 1){
+      for (nj in 1:l){
+        # print(paste0('nj: ', nj))
+        # nj = 2
+        ifn = 0
+        j = li_ni[nj]
+        nj1 = nj+1
+        # print(paste0('j: ', j))
+        if (j != i) {
+          li_nj = tab_corr[tab_corr$OBJECTID == j, ]$neighbors[[1]]
+          if (nj < l) {
+            for (nk in nj1:l){
+              # nk = 4
+              k = li_ni[nk]
+              # print(paste0('k: ', k))
+              if (k != j & k %in% li_nj) {
+                m = m + 1 
+                # print(paste0(k, ' and ', j, ' are common neighbors'))
+                li_cni <- append(li_cni, k)
+                li_cni <- append(li_cni, j)
+              } else {m = m + 0}
+            }
+            li_cni <- li_cni[!duplicated(li_cni)]
+            n = length(li_cni)
+            # print(paste0('n: ', n))
+          }
+        }
+      }
+    }
+    tab_corr[ni, 5] = m # pairs of neighbors
+    tab_corr[ni, 4] = l # num of neighbors
+    tab_corr[ni, 3] = n # common neighbors
+    print(paste0(ni, ' pairs of neighbors: ', m, '. common neighbors: ', n))
+  }
+  
+  tab_corr$test = (tab_corr$common_neighbors*tab_corr$common_neighbors - tab_corr$pairs_neighbors) >= 0
+  tab_corr[tab_corr$test == FALSE,]
+  tab_corr[tab_corr$common_neighbors > tab_corr$num_neighbors, ]
+  # sub metric 1: degree of connectedness
+  tab_corr$degree <- tab_corr$num_neighbors/length(id_pa)
+  # sub metric 2: clustering coefficient
+  tab_corr$clustering_coeff <- tab_corr$common_neighbors/tab_corr$num_neighbors
+  
+  # sub metric 3: compartmentalization
+  # 3-1 get neighbors' node degrees
+  tab_corr$neighbors_degree <- 0
+  tab_corr$average_neighbors_degree <- 0
+  for (ni in 1:nrow(tab_corr)){
+    i = tab_corr[ni, ]$OBJECTID
+    li_neighbors = tab_corr[ni, ]$neighbors[[1]]
+    l = length(li_neighbors)
+    if ( l > 0 ){
+      li_neighbors_degree <- c()
+      for (nj in 1:l){
+        j = li_neighbors[nj]
+        nj_degree <- tab_corr[tab_corr$OBJECTID == j, ]$degree
+        li_neighbors_degree <- c(li_neighbors_degree, nj_degree)
+      } 
+    } else {li_neighbors_degree <- c(0)} # if has no neighbors, set 0
+    tab_corr[ni, ]$neighbors_degree <- list(li_neighbors_degree)
+    tab_corr[ni, ]$average_neighbors_degree <- mean(li_neighbors_degree)
+  }
+  
+  # 3-3 get neighbor's average degree & 3-4 get compartmentalization
+  tab_corr$neighbors_average_ndegree <- 0
+  tab_corr$compartmentalization <- 0
+  
+
+  dfdegree <- tab_corr[c('OBJECTID', 'common_neighbors', 'num_neighbors', 'degree',
+                             'clustering_coeff', 'compartmentalization')]
+  
+
   
   #=====2. Raster metrics computable in R=====
   # convert vector to raster
   all_filtered_pa <- dplyr::group_by(filtered_pa) %>% summarize()
   r <- raster()
   extent(r) <- extent(filtered_pa)
-  res(r) <- 10000 # I am testing with coarser grain for speed
+  res(r) <- 1000 # I am testing with coarser grain for speed
   ras_filtered_pa <- rasterize(all_filtered_pa, r)
+  ras_pa_id <- rasterize(filtered_pa, r)
   # ras_filtered_pa <- rasterize(all_filtered_pa, r, background = 0) # if you want the background, keep them as 0, if not keep as NA
   # but how do I account for edge effects
-  plot(ras_filtered_pa)
+  # plot(ras_filtered_pa)
   
-  #====metric raster 1: patch cohesion index==== needs revision
+  # to compute MSPA, this can be saved and indexed
+  
+  #====metric raster 1: patch cohesion index=====
   cohesion <- lsm_c_cohesion(ras_filtered_pa, directions = 8) # class level
   
-  #====metric raster 2: area-weighted patch gyration==== needs revision
-  gyrate <- lsm_p_gyrate(ras, directions = 8, cell_center = FALSE) # patch level
+  #====metric raster 2: area-weighted patch gyration====
+  gyrate <- lsm_p_gyrate(ras_pa_id, directions = 8, cell_center = FALSE) # patch level
+  # something weird with gyrate, this is probably because values should be the objectids
+  # instead of only 1 vs 0
   
   #=====3. Vector metrics that can be processed but not comptuable in R=====
+  # compute in conefor
   #=====4. Raster metrics that can be processed but not computable in R=====
+  # mspa
   
   #=========Step3 create a dataframe to store all iterations (by number)========
   
   
-  sample(ca_pa$AREA_GEO, )
-  #=========Step4 create a dataframe to store all iterations (by area)========
-  
 }
 
 
-#=========Step5 visualization========
+#=========Step4 visualization========
