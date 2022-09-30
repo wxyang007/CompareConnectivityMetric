@@ -79,15 +79,15 @@ for (n in 1:n_iter) {
   # PAs dropped
   dropped_pa <- ca_pa[ca_pa$OBJECTID %in% OBJECTIDs_to_drop, ]
   
-  # PAs to keep and non-PAs
+  # PAs to keep and non-PAs and transboundary PAs
   keptpa_and_nonpa <- rbind(filtered_pa, ca_non_pa)
   
   
-  # create a temporary near table of only selected PAs
+  # near tab of only selected PAs
   filteredpa_neartab <- ca_neartab[(ca_neartab$IN_FID %in% OBJECTIDs_to_keep) & 
                                      (ca_neartab$NEAR_FID %in% OBJECTIDs_to_keep), ]
   
-  # create a temporary near table that excludes dropped PAs
+  # near tab that excludes dropped PAs
   no_droppedpa_neartab <- ca_neartab[!(ca_neartab$IN_FID %in% OBJECTIDs_to_drop),]
   no_droppedpa_neartab <- no_droppedpa_neartab[!(no_droppedpa_neartab$NEAR_FID %in% OBJECTIDs_to_drop), ]
   
@@ -122,28 +122,49 @@ for (n in 1:n_iter) {
   
   #====metric vector 3: proximity index====
   prox <- proximity.index(filtered_pa, max.dist = 10000)
-  # mean, sd, cv: can be added later
   # summary(prox)
   iters[nrow(iters), ]$prox = mean(prox)
   
   #====metric vector 4: equivalent connected area [conefor]=====
+  # the following code that calls conefor command line is adapted from Makurhini
   coneforpath = '/Users/wenxinyang/Desktop/Conefor_command_line/Conefor_Mac_32_and_64_bit/coneforOSX64'
   
-  nodedf = keptpa_and_nonpa[c("ORIG_FID", "AREA_GEO", "ifPA")]
-  nodedf['']
-  nodedf = filtered_pa[c("ORIG_FID", "AREA_GEO")]
+  nodedf <- keptpa_and_nonpa[c("OBJECTID", "AREA_GEO", "ifPA", "STATEFP")]
+  nodedf <- nodedf[nodedf$ifPA == 1, ]
+  nodedf$AREA_GEO[which(nodedf$STATEFP != '06')] <- 0
+  nodedf <- filtered_pa[c("OBJECTID", "AREA_GEO")]
   nodedf$geometry <- NULL
   
-  connectiondf = no_droppedpa_neartab[c("IN_FID", "NEAR_FID", "NEAR_DIST")]
+  nodesconefor <- unique(nodedf$OBJECTID)
+  connectiondf <- no_droppedpa_neartab[(no_droppedpa_neartab$IN_FID %in% nodesconefor) &
+                                         (no_droppedpa_neartab$NEAR_FID %in% nodesconefor), ]
+  connectiondf$OBJECTID <- NULL
+  connectiondf$NEAR_RANK <- NULL
   
-  conefor_exe = 'path/to/conefor64.exe'
-  nodeFile = '' # need to save them temporarily to a place
-  connectionFile = ''
-  p1 <- paste(conefor_exe, "-nodeFile", nodeFile, "-conFile", connectionFile, 
-              "-t dist -confProb 10000 0.5 -PC -IIC -ECA -F -AWF onlyoverall")
-  # BC, BCPC?
+  temp <- paste0(tempdir(), "\\tempconefor", sample(1:1000, 1, replace = T))
+  if(dir.exists(temp)){
+    unlink(temp, recursive = TRUE)
+  }
+  dir.create(temp, recursive = TRUE)
+  file.copy(coneforpath, temp, overwrite = T)
+  conefor_exe <- dir(temp, full.names = TRUE)
+  
+  setwd(temp)
+  nodefile <- paste0(n, '_node.txt')
+  write.table(nodedf, nodefile, row.names = FALSE, col.names = FALSE, sep = "\t")
+  confile <- paste0(n, '_distance.txt')
+  write.table(connectiondf, confile, row.names = FALSE, col.names = FALSE, sep = "\t")
+  
 
-  shell(p1, intern = TRUE)
+  p1 <- paste(conefor_exe, "-nodeFile", nodefile, "-conFile", confile, 
+              "-t dist -confProb 10000 0.5 -PC -IIC -ECA -F -AWF -BC onlyoverall")
+  
+  p2 <- paste("./coneforOSX64", "-nodeFile", nodefile, "-conFile", confile,
+              "-t dist -confProb 10000 0.5 -PC -IIC -ECA -F -AWF -BC onlyoverall")
+  system2(p2)
+  # you can use shell in windows system
+  unlink(temp, recursive = TRUE)
+  setwd(wd)
   
   #====metric vector 5: flux and awf [conefor]====
   
