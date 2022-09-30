@@ -49,8 +49,15 @@ ca_neartab <- read.csv('near_tab_CA.csv')
 # on desktop
 
 # create a table to store all the iterations
-iters <- data.frame(matrix(ncol = 2, nrow = 0))
-colnames(iters) <- c("num_iter", "objectids_to_keep")
+iters <- data.frame(matrix(ncol = 23, nrow = 0))
+colnames(iters) <- c("num_iter", "objectids_to_keep", "prot",
+                     "nn_d", "area_buff", "prox", "eca", "flux",
+                     "awf", "pc", "protconn", 
+                     "protconn_prot", "protconn_unprot", "protconn_trans", 
+                     "protconn_within", "protconn_contig",
+                     "iic", "bc", 
+                     "degree", "clustering_coeff", "compartment","cohesion", "gyrate"
+                     )
 
 #=========Step2 iterate by number of patches ========
 n_iter = 1
@@ -66,26 +73,34 @@ for (n in 1:n_iter) {
   filtered_pa <- ca_pa[!ca_pa$OBJECTID %in% OBJECTIDs_to_drop, ]
   filtered_pa$ifTarget = 1
   OBJECTIDs_to_keep = unique(filtered_pa$OBJECTID)
-  iters[nrow(iters) + 1, ] = c(n, paste(OBJECTIDs_to_keep, collapse = ','))
+  iters[nrow(iters) + 1, ]$num_iter = 1
+  iters[nrow(iters), ]$objectids_to_keep = paste(OBJECTIDs_to_keep, collapse = ',')
+  
+  # PAs dropped
+  dropped_pa <- ca_pa[ca_pa$OBJECTID %in% OBJECTIDs_to_drop, ]
   
   # PAs to keep and non-PAs
-  ca_w_bound <- rbind(filtered_pa, ca_non_pa)
-  dropped_pa <- ca_pa[ca_pa$OBJECTID %in% OBJECTIDs_to_drop, ]
+  keptpa_and_nonpa <- rbind(filtered_pa, ca_non_pa)
+  
   
   # create a temporary near table of only selected PAs
   filteredpa_neartab <- ca_neartab[(ca_neartab$IN_FID %in% OBJECTIDs_to_keep) & 
                                      (ca_neartab$NEAR_FID %in% OBJECTIDs_to_keep), ]
   
+  # create a temporary near table that excludes dropped PAs
+  no_droppedpa_neartab <- ca_neartab[!(ca_neartab$IN_FID %in% OBJECTIDs_to_drop),]
+  no_droppedpa_neartab <- no_droppedpa_neartab[!(no_droppedpa_neartab$NEAR_FID %in% OBJECTIDs_to_drop), ]
+  
   
   #=====1. Vector metrics computable in R=====
   #====metric vector 1: nearest neighbor distance====
   # the computation way
-  nearest <- st_nearest_feature(filtered_pa) # get which is the nearest feature
-  dist_pa <- st_distance(filtered_pa,filtered_pa[nearest, ], by_element=TRUE) # compute distance
+  # nearest <- st_nearest_feature(filtered_pa) # get which is the nearest feature
+  # dist_pa <- st_distance(filtered_pa,filtered_pa[nearest, ], by_element=TRUE) # compute distance
   # the near table way
-  nn_d <- aggregate(NEAR_DIST ~ IN_FID, filteredpa_neartab, function(x) min(x)) # <- sth. wrong with the near table
-  # mean, sd, cv
-  # mean(dist);sd(dist);sd(dist)/mean(dist)
+  nn_d <- aggregate(NEAR_DIST ~ IN_FID, filteredpa_neartab, function(x) min(x))
+  # summary(nn_d$NEAR_DIST)
+  iters[nrow(iters), ]$nn_d = mean(nn_d$NEAR_DIST)
   
   #====metric vector 2: area of habitat within buffer====
   # WARNING: would have to take into consideration the buffered areas outside boundary...
@@ -102,48 +117,67 @@ for (n in 1:n_iter) {
     filtered_pa[x,]$int_area <- as.numeric(sum(b$area))
   }
   intersected_area <- filtered_pa$int_area
-  # mean, sd, cv: can be added later
-  summary(intersected_area)
+  # summary(intersected_area)
+  iters[nrow(iters), ]$area_buff = mean(intersected_area)
   
   #====metric vector 3: proximity index====
   prox <- proximity.index(filtered_pa, max.dist = 10000)
   # mean, sd, cv: can be added later
-  summary(prox)
+  # summary(prox)
+  iters[nrow(iters), ]$prox = mean(prox)
   
   #====metric vector 4: equivalent connected area [conefor]=====
-  p1 <- paste(conefor_exe, "-nodeFile", nodeFile, "-conFile", connectionFile, "-t",
-              typeconnection, typepairs)
-  p2 <- paste("-confAdj", thdist, paste0("-", index))
-  p0 <- "onlyoverall"
-  command_line = paste(p1, p2, p0)
-  shell(command_line, intern = TRUE)
+  coneforpath = '/Users/wenxinyang/Desktop/Conefor_command_line/Conefor_Mac_32_and_64_bit/coneforOSX64'
+  
+  nodedf = keptpa_and_nonpa[c("ORIG_FID", "AREA_GEO", "ifPA")]
+  nodedf['']
+  nodedf = filtered_pa[c("ORIG_FID", "AREA_GEO")]
+  nodedf$geometry <- NULL
+  
+  connectiondf = no_droppedpa_neartab[c("IN_FID", "NEAR_FID", "NEAR_DIST")]
+  
+  conefor_exe = 'path/to/conefor64.exe'
+  nodeFile = '' # need to save them temporarily to a place
+  connectionFile = ''
+  p1 <- paste(conefor_exe, "-nodeFile", nodeFile, "-conFile", connectionFile, 
+              "-t dist -confProb 10000 0.5 -PC -IIC -ECA -F -AWF onlyoverall")
+  # BC, BCPC?
+
+  shell(p1, intern = TRUE)
   
   #====metric vector 5: flux and awf [conefor]====
   
   #====metric vector 6: probability of connectivity [conefor]====
   
   #====metric vector 7: ProtConn [conefor and R]====
-  a<- MK_ProtConn(filtered_pa, ca_bound_reproj, area_unit = "m2", distance = list(type = "edge"),
-                  distance_thresholds = 10000, probability = 0.5, transboundary = 10000,
-                  transboundary_type = "nodes", protconn_bound = FALSE)
+  protconn<- MK_ProtConn(filtered_pa, ca_bound_reproj, area_unit = "m2", distance = list(type = "edge"),
+                  distance_thresholds = 10000, probability = 0.5, transboundary = 230000,
+                  transboundary_type = "nodes", protconn_bound = TRUE)
+  iters[nrow(iters), ]$prot = protconn[1, ]$Percentage
+  iters[nrow(iters), ]$protconn = protconn[3, ]$Percentage
+  iters[nrow(iters), ]$protconn_prot = protconn[8, ]$Percentage
+  iters[nrow(iters), ]$protconn_trans = protconn[9, ]$Percentage
+  iters[nrow(iters), ]$protconn_unprot = protconn[10, ]$Percentage
+  iters[nrow(iters), ]$protconn_within = protconn[11, ]$Percentage
+  iters[nrow(iters), ]$protconn_contig = protconn[12, ]$Percentage
   
   # this script works but needs to be edited
   # what to edit: 1) rbind filtered_pa with ca-non-pas; 2) set protconn_bound to be TRUE;
   # 3) think about transboundary threshold; 4) get the specific value for ProtConn from the result table
   
-  #====metric vector 8: node betweenness centrality====
-  centrality <- MK_RMCentrality(nodes = filtered_pa,
-                                # area_unit = 'm',
-                                distance = list(type = 'edge'),
-                                distance_thresholds = 10000,
-                                probability = 0.5,
-                                write = NULL)
+  #====metric vector 8: node betweenness centrality [conefor]====
+#  centrality <- MK_RMCentrality(nodes = filtered_pa,
+#                                # area_unit = 'm',
+#                                distance = list(type = 'edge'),
+#                                distance_thresholds = 10000,
+#                                probability = 0.5,
+#                                write = NULL)
   # Warning message: 
   # In closeness(graph_nodes) :
   #   At centrality.c:2874 : closeness centrality is not well defined for disconnected graphs
-  summary(centrality$BWC)
+  # summary(centrality$BWC)
   
-  #====metric vector 9 and after: correlation length and others====
+  #====metric vector 9 and after: clustering coefficient and others====
   neartab_corr <- filteredpa_neartab[filteredpa_neartab$NEAR_DIST <= 10000, ]
   neartab_corr$OBJECTID <- NULL
   neartab_corr$NEAR_RANK <- NULL
@@ -256,6 +290,9 @@ for (n in 1:n_iter) {
   dfdegree <- tab_corr[c('OBJECTID', 'common_neighbors', 'num_neighbors', 'degree',
                              'clustering_coeff', 'compartmentalization')]
   
+  iters[nrow(iters), ]$degree = mean(dfdegree$degree)
+  iters[nrow(iters), ]$clustering_coeff = mean(dfdegree$clustering_coeff)
+  iters[nrow(iters), ]$compartment = mean(dfdegree$compartmentalization)
 
   
   #=====2. Raster metrics computable in R=====
@@ -274,16 +311,14 @@ for (n in 1:n_iter) {
   
   #====metric raster 1: patch cohesion index=====
   cohesion <- lsm_c_cohesion(ras_filtered_pa, directions = 8) # class level
+  iters[nrow(iters), ]$cohesion = mean(cohesion$value)
   
   #====metric raster 2: area-weighted patch gyration====
   gyrate <- lsm_p_gyrate(ras_pa_id, directions = 8, cell_center = FALSE) # patch level
+  iters[nrow(iters), ]$gyrate = mean(gyrate$value)
   # something weird with gyrate, this is probably because values should be the objectids
   # instead of only 1 vs 0
-  
-  #=====3. Vector metrics that can be processed but not comptuable in R=====
-  # compute in conefor
-  #=====4. Raster metrics that can be processed but not computable in R=====
-  # mspa
+
   
   #=========Step3 create a dataframe to store all iterations (by number)========
   
