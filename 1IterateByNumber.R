@@ -16,14 +16,20 @@ library(landscapemetrics)
 # read in shapefile with: pa and non pa lands within CA and in 230km buffer
 # on my laptop
 setwd('~/')
-wd <- file.path(getwd(), 'Desktop', 'AProtconn','data','CA')
-setwd(wd)
+# wd <- file.path(getwd(), 'Desktop', 'AProtconn','data','CA')
+
+# setwd(wd)
+
+# on desktop
+setwd('C:/Users/wyang80/Desktop/CONN_MEASURE/data/CA')
+
 shp <- read_sf('ca_pa_file_fixed.shp')
 # on desktop
 # shp <- read_sf('C:/Users/wyang80/Desktop/CONN_MEASURE/data/CA/ca_pa_file_fixed.shp')
 summary(shp$OBJECTID)
 
 ca_bound <- read_sf('ca-state-boundary/CA_State_TIGER2016.shp')
+
 
 # filter out only the pas in CA, these are the patches to iterate with
 ca_pa <- shp[which((shp$ifPA == 1) & (shp$STATEFP == '06')), ]
@@ -32,21 +38,19 @@ ca_bound_reproj <- st_transform(ca_bound, crs(ca_pa))
 # before reading in
 # non_ca_pa <- shp[(shp$ifPA != 1) | (shp$STATEFP != '06'), ]
 # on my laptop
-ca_non_pa <- read_sf('non_ca_pa/non_ca_pa.shp')
-ca_non_pa$ifTarget = 0
-# ca_non_pa$ID = -1
+# non_ca_pa <- read_sf('non_ca_pa/non_ca_pa.shp')
+# non_ca_pa$ifTarget = 0
+# non_ca_pa$ID = -1
+
 # on desktop
-# non_ca_pa <- read_sf('C:/Users/wyang80/Desktop/CONN_MEASURE/data/CA/non_ca_pa.shp')
+non_ca_pa <- read_sf('C:/Users/wyang80/Desktop/CONN_MEASURE/data/CA/non_ca_pa.shp')
+non_ca_pa$ifTarget = 0
 # ca_pa$ID <- 1:nrow(ca_pa)
 n_ca_pa <- nrow(ca_pa)
 
 
 # read in the near table
-# on my laptop
 ca_neartab <- read.csv('near_tab_CA.csv')
-# WARNING: might want to label them for ca, non-ca, pa, non-pa
-# could do this by linking back to the pa shapefile.
-# on desktop
 
 # create a table to store all the iterations
 iters <- data.frame(matrix(ncol = 23, nrow = 0))
@@ -80,7 +84,7 @@ for (n in 1:n_iter) {
   dropped_pa <- ca_pa[ca_pa$OBJECTID %in% OBJECTIDs_to_drop, ]
   
   # PAs to keep and non-PAs and transboundary PAs
-  keptpa_and_nonpa <- rbind(filtered_pa, ca_non_pa)
+  keptpa_and_nonpa <- rbind(filtered_pa, non_ca_pa)
   
   
   # near tab of only selected PAs
@@ -127,7 +131,11 @@ for (n in 1:n_iter) {
   
   #====metric vector 4: equivalent connected area [conefor]=====
   # the following code that calls conefor command line is adapted from Makurhini
-  coneforpath = '/Users/wenxinyang/Desktop/Conefor_command_line/Conefor_Mac_32_and_64_bit/coneforOSX64'
+  # on my laptop this is not working
+  # coneforpath = '/Users/wenxinyang/Desktop/Conefor_command_line/Conefor_Mac_32_and_64_bit/coneforOSX64'
+  
+  # on desktop
+  coneforpath = 'C:/Users/wyang80/Desktop/Conefor_command_line/Conefor_Windows_32_and_64_bit/coneforWin64.exe'
   
   nodedf <- keptpa_and_nonpa[c("OBJECTID", "AREA_GEO", "ifPA", "STATEFP")]
   nodedf <- nodedf[nodedf$ifPA == 1, ]
@@ -157,11 +165,13 @@ for (n in 1:n_iter) {
   
 
   p1 <- paste(conefor_exe, "-nodeFile", nodefile, "-conFile", confile, 
-              "-t dist -confProb 10000 0.5 -PC -IIC -ECA -F -AWF -BC onlyoverall")
+              "-t dist -confProb 10000 0.5 -PC -F -AWF onlyoverall")
   
-  p2 <- paste("./coneforOSX64", "-nodeFile", nodefile, "-conFile", confile,
-              "-t dist -confProb 10000 0.5 -PC -IIC -ECA -F -AWF -BC onlyoverall")
-  system2(p2)
+  shell(p1, intern = TRUE)
+  
+  EstConefor(nodeFile = nodefile, coneforpath = conefor_exe, connectionFile = confile,
+             typeconnection = 'dist', typepairs = 'notall', index = c("PC", "F"),
+             thdist = 10000, confprob = 0.5, onlyoverall = TRUE)
   # you can use shell in windows system
   unlink(temp, recursive = TRUE)
   setwd(wd)
