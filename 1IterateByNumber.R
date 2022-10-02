@@ -21,12 +21,14 @@ setwd('~/')
 # setwd(wd)
 
 # on desktop
-setwd('C:/Users/wyang80/Desktop/CONN_MEASURE/data/CA')
+wd <- 'C:/Users/wyang80/Desktop/CONN_MEASURE/data/CA'
+setwd(wd)
+coneforfolder = 'C:/Users/wyang80/Desktop/CONN_MEASURE/data/CA/conefor_results'
 
 shp <- read_sf('ca_pa_file_fixed.shp')
 # on desktop
 # shp <- read_sf('C:/Users/wyang80/Desktop/CONN_MEASURE/data/CA/ca_pa_file_fixed.shp')
-summary(shp$OBJECTID)
+# summary(shp$OBJECTID)
 
 ca_bound <- read_sf('ca-state-boundary/CA_State_TIGER2016.shp')
 
@@ -86,14 +88,22 @@ for (n in 1:n_iter) {
   # PAs to keep and non-PAs and transboundary PAs
   keptpa_and_nonpa <- rbind(filtered_pa, non_ca_pa)
   
+  # PAs to keep and transboundary PAs
+  all_only_pa <- keptpa_and_nonpa[keptpa_and_nonpa$ifPA == 1, ]
+  OBJECTIDs_all_pas = unique(all_only_pa$OBJECTID)
   
-  # near tab of only selected PAs
+  
+  # near tab of only selected PAs in CA
   filteredpa_neartab <- ca_neartab[(ca_neartab$IN_FID %in% OBJECTIDs_to_keep) & 
                                      (ca_neartab$NEAR_FID %in% OBJECTIDs_to_keep), ]
   
   # near tab that excludes dropped PAs
   no_droppedpa_neartab <- ca_neartab[!(ca_neartab$IN_FID %in% OBJECTIDs_to_drop),]
   no_droppedpa_neartab <- no_droppedpa_neartab[!(no_droppedpa_neartab$NEAR_FID %in% OBJECTIDs_to_drop), ]
+  
+  # near tab of PAs to keep and transboundary PAs
+  all_only_pa_neartab <- ca_neartab[(ca_neartab$IN_FID %in% OBJECTIDs_all_pas),]
+  all_only_pa_neartab <- all_only_pa_neartab[(all_only_pa_neartab$NEAR_FID %in% OBJECTIDs_all_pas), ]
   
   
   #=====1. Vector metrics computable in R=====
@@ -102,14 +112,14 @@ for (n in 1:n_iter) {
   # nearest <- st_nearest_feature(filtered_pa) # get which is the nearest feature
   # dist_pa <- st_distance(filtered_pa,filtered_pa[nearest, ], by_element=TRUE) # compute distance
   # the near table way
-  nn_d <- aggregate(NEAR_DIST ~ IN_FID, filteredpa_neartab, function(x) min(x))
+  nn_d <- aggregate(NEAR_DIST ~ IN_FID, all_only_pa_neartab, function(x) min(x))
+  nn_d <- nn_d[nn_d$IN_FID %in% OBJECTIDs_to_keep, ]
   # summary(nn_d$NEAR_DIST)
   iters[nrow(iters), ]$nn_d = mean(nn_d$NEAR_DIST)
   
   #====metric vector 2: area of habitat within buffer====
-  # WARNING: would have to take into consideration the buffered areas outside boundary...
   buffered <- st_buffer(filtered_pa, 10000)
-  intersect <- st_intersection(buffered, filtered_pa)
+  intersect <- st_intersection(buffered, all_only_pa)
   intersect$area <- st_area(intersect)
   intersect$ID.new <- 1:nrow(intersect)
   filtered_pa$contains <- st_contains(filtered_pa, intersect)
@@ -121,13 +131,12 @@ for (n in 1:n_iter) {
     filtered_pa[x,]$int_area <- as.numeric(sum(b$area))
   }
   intersected_area <- filtered_pa$int_area
-  # summary(intersected_area)
   iters[nrow(iters), ]$area_buff = mean(intersected_area)
   
   #====metric vector 3: proximity index====
-  prox <- proximity.index(filtered_pa, max.dist = 10000)
-  # summary(prox)
-  iters[nrow(iters), ]$prox = mean(prox)
+  all_only_pa$prox <- proximity.index(all_only_pa, max.dist = 10000)
+  results_pa_prox <- all_only_pa[all_only_pa$ifTarget == 1, ]$prox
+  iters[nrow(iters), ]$prox = mean(results_pa_prox)
   
   #====metric vector 4: equivalent connected area [conefor]=====
   # the following code that calls conefor command line is adapted from Makurhini
@@ -135,9 +144,9 @@ for (n in 1:n_iter) {
   # coneforpath = '/Users/wenxinyang/Desktop/Conefor_command_line/Conefor_Mac_32_and_64_bit/coneforOSX64'
   
   # on desktop
-  coneforpath = 'C:/Users/wyang80/Desktop/Conefor_command_line/Conefor_Windows_32_and_64_bit/coneforWin64.exe'
+  # coneforpath = 'C:/Users/wyang80/Desktop/Conefor_command_line/Conefor_Windows_32_and_64_bit/coneforWin64.exe'
   
-  nodedf <- keptpa_and_nonpa[c("OBJECTID", "AREA_GEO", "ifPA", "STATEFP")]
+  nodedf <- all_only_pa[c("OBJECTID", "AREA_GEO", "ifPA", "STATEFP")]
   nodedf <- nodedf[nodedf$ifPA == 1, ]
   nodedf$AREA_GEO[which(nodedf$STATEFP != '06')] <- 0
   nodedf <- filtered_pa[c("OBJECTID", "AREA_GEO")]
@@ -149,15 +158,18 @@ for (n in 1:n_iter) {
   connectiondf$OBJECTID <- NULL
   connectiondf$NEAR_RANK <- NULL
   
-  temp <- paste0(tempdir(), "\\tempconefor", sample(1:1000, 1, replace = T))
-  if(dir.exists(temp)){
-    unlink(temp, recursive = TRUE)
-  }
-  dir.create(temp, recursive = TRUE)
-  file.copy(coneforpath, temp, overwrite = T)
-  conefor_exe <- dir(temp, full.names = TRUE)
+  thisiter <- paste0(coneforfolder, "\\", n)
+  dir.create(thisiter)
   
-  setwd(temp)
+  # temp <- paste0(tempdir(), "\\tempconefor", sample(1:1000, 1, replace = T))
+  #if(dir.exists(temp)){
+  #  unlink(temp, recursive = TRUE)
+  #}
+  #dir.create(temp, recursive = TRUE)
+  #file.copy(coneforpath, temp, overwrite = T)
+  conefor_exe <- paste0(coneforfolder, '/coneforWin64.exe')
+  
+  setwd(thisiter)
   nodefile <- paste0(n, '_node.txt')
   write.table(nodedf, nodefile, row.names = FALSE, col.names = FALSE, sep = "\t")
   confile <- paste0(n, '_distance.txt')
@@ -165,15 +177,12 @@ for (n in 1:n_iter) {
   
 
   p1 <- paste(conefor_exe, "-nodeFile", nodefile, "-conFile", confile, 
-              "-t dist -confProb 10000 0.5 -PC -F -AWF onlyoverall")
+              "-t dist -confProb 10000 0.5 -PC -F -AWF -confAdj 10000 -IIC -BC onlyoverall")
   
   shell(p1, intern = TRUE)
-  
-  EstConefor(nodeFile = nodefile, coneforpath = conefor_exe, connectionFile = confile,
-             typeconnection = 'dist', typepairs = 'notall', index = c("PC", "F"),
-             thdist = 10000, confprob = 0.5, onlyoverall = TRUE)
+
   # you can use shell in windows system
-  unlink(temp, recursive = TRUE)
+  # unlink(temp, recursive = TRUE)
   setwd(wd)
   
   #====metric vector 5: flux and awf [conefor]====
@@ -183,7 +192,7 @@ for (n in 1:n_iter) {
   #====metric vector 7: ProtConn [conefor and R]====
   protconn<- MK_ProtConn(filtered_pa, ca_bound_reproj, area_unit = "m2", distance = list(type = "edge"),
                   distance_thresholds = 10000, probability = 0.5, transboundary = 230000,
-                  transboundary_type = "nodes", protconn_bound = TRUE)
+                  transboundary_type = "nodes", protconn_bound = FALSE)
   iters[nrow(iters), ]$prot = protconn[1, ]$Percentage
   iters[nrow(iters), ]$protconn = protconn[3, ]$Percentage
   iters[nrow(iters), ]$protconn_prot = protconn[8, ]$Percentage
@@ -197,19 +206,16 @@ for (n in 1:n_iter) {
   # 3) think about transboundary threshold; 4) get the specific value for ProtConn from the result table
   
   #====metric vector 8: node betweenness centrality [conefor]====
-#  centrality <- MK_RMCentrality(nodes = filtered_pa,
-#                                # area_unit = 'm',
-#                                distance = list(type = 'edge'),
-#                                distance_thresholds = 10000,
-#                                probability = 0.5,
-#                                write = NULL)
-  # Warning message: 
-  # In closeness(graph_nodes) :
-  #   At centrality.c:2874 : closeness centrality is not well defined for disconnected graphs
-  # summary(centrality$BWC)
+  #centrality <- MK_RMCentrality(nodes = filtered_pa,
+  #                              # area_unit = 'm',
+  #                              distance = list(type = 'edge'),
+  #                              distance_thresholds = 10000,
+  #                              probability = 0.5,
+  #                              write = NULL)
+  #iters[nrow(iters), ]$bc = mean(centrality)
   
   #====metric vector 9 and after: clustering coefficient and others====
-  neartab_corr <- filteredpa_neartab[filteredpa_neartab$NEAR_DIST <= 10000, ]
+  neartab_corr <- all_only_pa_neartab[all_only_pa_neartab$NEAR_DIST <= 10000, ]
   neartab_corr$OBJECTID <- NULL
   neartab_corr$NEAR_RANK <- NULL
   neartab_corr$NEAR_DIST <- NULL
@@ -223,7 +229,7 @@ for (n in 1:n_iter) {
   tab_corr <- merge(pa_corr, r1, by.x = 'OBJECTID', by.y = 'IN_FID',
                     all.x = TRUE)
   
-  tab_corr <- tab_corr[tab_corr$ifPA == 1, ]
+  # tab_corr <- tab_corr[tab_corr$ifPA == 1, ]
   
   id_pa <- tab_corr$OBJECTID
   id_pa <- id_pa[!duplicated(id_pa)]
@@ -314,6 +320,7 @@ for (n in 1:n_iter) {
   }
   
   # 3-3 get neighbor's average degree & 3-4 get compartmentalization
+  # this is problematic because there are NAs and 0s here
   tab_corr$neighbors_average_ndegree <- 0
   tab_corr$compartmentalization <- 0
   
@@ -328,12 +335,12 @@ for (n in 1:n_iter) {
   
   #=====2. Raster metrics computable in R=====
   # convert vector to raster
-  all_filtered_pa <- dplyr::group_by(filtered_pa) %>% summarize()
+  all_only_pa_to_ras <- dplyr::group_by(all_only_pa) %>% summarize()
   r <- raster()
-  extent(r) <- extent(filtered_pa)
+  extent(r) <- extent(all_only_pa)
   res(r) <- 1000 # I am testing with coarser grain for speed
-  ras_filtered_pa <- rasterize(all_filtered_pa, r)
-  ras_pa_id <- rasterize(filtered_pa, r)
+  ras_filtered_pa <- rasterize(all_only_pa_to_ras, r)
+  ras_pa_id <- rasterize(all_only_pa, r)
   # ras_filtered_pa <- rasterize(all_filtered_pa, r, background = 0) # if you want the background, keep them as 0, if not keep as NA
   # but how do I account for edge effects
   # plot(ras_filtered_pa)
@@ -342,19 +349,17 @@ for (n in 1:n_iter) {
   
   #====metric raster 1: patch cohesion index=====
   cohesion <- lsm_c_cohesion(ras_filtered_pa, directions = 8) # class level
+  # how to account for edge effect
   iters[nrow(iters), ]$cohesion = mean(cohesion$value)
   
   #====metric raster 2: area-weighted patch gyration====
   gyrate <- lsm_p_gyrate(ras_pa_id, directions = 8, cell_center = FALSE) # patch level
+  gyrate <- gyrate[gyrate$class %in% OBJECTIDs_to_keep, ]
   iters[nrow(iters), ]$gyrate = mean(gyrate$value)
-  # something weird with gyrate, this is probably because values should be the objectids
-  # instead of only 1 vs 0
 
-  
-  #=========Step3 create a dataframe to store all iterations (by number)========
   
   
 }
 
 
-#=========Step4 visualization========
+#=========Step3 visualization========
