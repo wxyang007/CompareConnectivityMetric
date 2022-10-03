@@ -225,62 +225,77 @@ for (n in 1:n_iter) {
     group_by(IN_FID) %>%
     summarise(neighbors = list(NEAR_FID))
   
-  pa_corr <- filtered_pa[c('OBJECTID', 'ifPA', 'ifTarget', 'AREA_GEO')]
+  # do the calculations for all PAs (both within CA and its transboundary neighbors)
+  # will throw these in the end
+  pa_corr <- all_only_pa[c('OBJECTID', 'ifPA', 'ifTarget', 'AREA_GEO')]
   tab_corr <- merge(pa_corr, r1, by.x = 'OBJECTID', by.y = 'IN_FID',
                     all.x = TRUE)
-  
+  tab_corr$geometry <- NULL
   # tab_corr <- tab_corr[tab_corr$ifPA == 1, ]
   
-  id_pa <- tab_corr$OBJECTID
+  id_pa <- OBJECTIDs_all_pas
   id_pa <- id_pa[!duplicated(id_pa)]
   li_id_pa <- list(id_pa)[[1]]
   
   tab_corr <- tab_corr[c('OBJECTID', 'neighbors')]
-  tab_corr$geometry <- NULL
   tab_corr$common_neighbors <- 0
   tab_corr$num_neighbors <- 0
   tab_corr$pairs_neighbors <- 0
   
-  for (ni in 1:nrow(tab_corr)){
-    i = tab_corr[ni, ]$OBJECTID
-    li_ni = tab_corr[ni, ]$neighbors[[1]]
-    li_ni_pa = Reduce(intersect, list(li_ni, li_id_pa))
-    tab_corr[ni, ]$neighbors = list(li_ni_pa)
-  }
+#  for (ni in 1:nrow(tab_corr)){
+#    i = tab_corr[ni, ]$OBJECTID # get the objectid of the nith row
+#    li_ni = tab_corr[ni, ]$neighbors[[1]] # get its neighbors
+#    li_ni_pa = Reduce(intersect, list(li_ni, li_id_pa)) # get its neighbors that are PAs
+#    if (is.na(li_ni)) {
+#      print(ni)
+#      print('has no neighbors')
+#    } else {
+#      if (li_ni != li_ni_pa) {
+#        print(ni)
+#        print('includes non-pa')
+#      }
+#    }
+#    tab_corr[ni, ]$neighbors = list(li_ni_pa)
+#  }
   
   for (ni in 1:nrow(tab_corr)){
     # ni = 1
     i = tab_corr[ni, ]$OBJECTID
     li_ni = tab_corr[ni, ]$neighbors[[1]]
-    l = length(li_ni)
+    if (is.na(li_ni)){
+      l = 0
+    } else (l = length(li_ni))
     li_cni = list()
     m = 0
     n = 0
+    
+    # The following loop gets common neighbors
+    # Specifically, it loops through every pair of neighbor patches of the target patch
+    # And test if the pair of patches contain each other within their own neighbor list
+    # i x (i+1:n), where n is the total number of neighbors of the target patch
+    # So there are two loops, the first one for i goes from 1:n
+    # The second goes from i+1:n
+    # Note: if the patch itself does not have any neighbors, it should set common neighbors to 0
+    
     if (length(li_ni) > 1){
       for (nj in 1:l){
-        # print(paste0('nj: ', nj))
         # nj = 2
         ifn = 0
         j = li_ni[nj]
         nj1 = nj+1
-        # print(paste0('j: ', j))
         if (j != i) {
           li_nj = tab_corr[tab_corr$OBJECTID == j, ]$neighbors[[1]]
           if (nj < l) {
             for (nk in nj1:l){
-              # nk = 4
               k = li_ni[nk]
-              # print(paste0('k: ', k))
               if (k != j & k %in% li_nj) {
                 m = m + 1 
-                # print(paste0(k, ' and ', j, ' are common neighbors'))
                 li_cni <- append(li_cni, k)
                 li_cni <- append(li_cni, j)
               } else {m = m + 0}
             }
             li_cni <- li_cni[!duplicated(li_cni)]
             n = length(li_cni)
-            # print(paste0('n: ', n))
           }
         }
       }
@@ -292,10 +307,16 @@ for (n in 1:n_iter) {
   }
   
   tab_corr$test = (tab_corr$common_neighbors*tab_corr$common_neighbors - tab_corr$pairs_neighbors) >= 0
-  tab_corr[tab_corr$test == FALSE,]
-  tab_corr[tab_corr$common_neighbors > tab_corr$num_neighbors, ]
+  nrow(tab_corr[tab_corr$test == FALSE,])
+  nrow(tab_corr[tab_corr$common_neighbors > tab_corr$num_neighbors, ])
+  
+  # delete transboundary patches
+  tab_corr <- tab_corr[tab_corr$OBJECTID %in% OBJECTIDs_to_keep, ]
+  # replace NAs with 0s
+  tab_corr[is.na(tab_corr)] <- 0
+  
   # sub metric 1: degree of connectedness
-  tab_corr$degree <- tab_corr$num_neighbors/length(id_pa)
+  tab_corr$degree <- tab_corr$num_neighbors/length(OBJECTIDs_to_keep)
   # sub metric 2: clustering coefficient
   tab_corr$clustering_coeff <- tab_corr$common_neighbors/tab_corr$num_neighbors
   
@@ -323,6 +344,36 @@ for (n in 1:n_iter) {
   # this is problematic because there are NAs and 0s here
   tab_corr$neighbors_average_ndegree <- 0
   tab_corr$compartmentalization <- 0
+  
+  for (ni in 1:nrow(tab_corr)){
+    i = tab_corr[ni, ]$OBJECTID
+    li_neighbors = tab_corr[ni, ]$neighbors[[1]]
+    
+    if (is.na(li_neighbors)){
+      l = 0
+    } else {
+      l = length(li_neighbors)
+    }
+    
+    li_neighbors_average_degree <- c()
+    
+    if (l > 0) {
+      for (nj in 1:l) {
+        j = li_neighbors[nj]
+        nj_neighbors_average_degree <- tab_corr[tab_corr$OBJECTID == j, ]$average_neighbors_degree
+        li_neighbors_average_degree <- c(li_neighbors_average_degree, nj_neighbors_average_degree)
+      }
+      
+      ndegree <- tab_corr[ni, ]$neighbors_degree
+      ndegree <- as.numeric(unlist(ndegree))
+      tab_corr[ni, ]$neighbors_average_ndegree <- list(li_neighbors_average_degree)
+      
+      # calculate correlation coefficient here
+      corr_coeff <- cor(ndegree, li_neighbors_average_degree)
+      if(is.na(corr_coeff)) {corr_coeff = 1}
+      tab_corr[ni, ]$compartmentalization = corr_coeff
+    }
+  }
   
 
   dfdegree <- tab_corr[c('OBJECTID', 'common_neighbors', 'num_neighbors', 'degree',
