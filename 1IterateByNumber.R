@@ -55,22 +55,25 @@ n_ca_pa <- nrow(ca_pa)
 ca_neartab <- read.csv('near_tab_CA.csv')
 
 # create a table to store all the iterations
-iters <- data.frame(matrix(ncol = 23, nrow = 0))
+iters <- data.frame(matrix(ncol = 28, nrow = 0))
 colnames(iters) <- c("num_iter", "objectids_to_keep", "prot",
                      "nn_d", "area_buff", "prox", "eca", "flux",
                      "awf", "pc", "protconn", 
                      "protconn_prot", "protconn_unprot", "protconn_trans", 
                      "protconn_within", "protconn_contig",
                      "iic", "bc", 
-                     "degree", "clustering_coeff", "compartment","cohesion", "gyrate"
+                     "degree", "clustering_coeff", "compartment","cohesion", "gyrate",
+                     "mean_patch_area", "mean_patch_peri", "mean_patch_shape", "total_edge",
+                     "edge_density"
                      )
 
 #=========Step2 iterate by number of patches ========
-n_iter = 1
+n_iter = 100
 
 # For every iteration, do the following:
 for (n in 1:n_iter) {
   print(n)
+  start.time <- Sys.time()
   
   # randomly drop 10% of the nodes
   OBJECTIDs_to_drop = sample(min(ca_pa$OBJECTID):max(ca_pa$OBJECTID), round(0.1*n_ca_pa), replace=F)
@@ -206,13 +209,13 @@ for (n in 1:n_iter) {
   # 3) think about transboundary threshold; 4) get the specific value for ProtConn from the result table
   
   #====metric vector 8: node betweenness centrality [conefor]====
-  #centrality <- MK_RMCentrality(nodes = filtered_pa,
-  #                              # area_unit = 'm',
-  #                              distance = list(type = 'edge'),
-  #                              distance_thresholds = 10000,
-  #                              probability = 0.5,
-  #                              write = NULL)
-  #iters[nrow(iters), ]$bc = mean(centrality)
+  centrality <- MK_RMCentrality(nodes = filtered_pa,
+                                # area_unit = 'm',
+                                distance = list(type = 'edge'),
+                                distance_thresholds = 10000,
+                                probability = 0.5,
+                                write = NULL)
+  iters[nrow(iters), ]$bc = mean(centrality)
   
   #====metric vector 9 and after: clustering coefficient and others====
   neartab_corr <- all_only_pa_neartab[all_only_pa_neartab$NEAR_DIST <= 10000, ]
@@ -303,7 +306,7 @@ for (n in 1:n_iter) {
     tab_corr[ni, 5] = m # pairs of neighbors
     tab_corr[ni, 4] = l # num of neighbors
     tab_corr[ni, 3] = n # common neighbors
-    print(paste0(ni, ' pairs of neighbors: ', m, '. common neighbors: ', n))
+    # print(paste0(ni, ' pairs of neighbors: ', m, '. common neighbors: ', n))
   }
   
   tab_corr$test = (tab_corr$common_neighbors*tab_corr$common_neighbors - tab_corr$pairs_neighbors) >= 0
@@ -315,12 +318,13 @@ for (n in 1:n_iter) {
   # replace NAs with 0s
   tab_corr[is.na(tab_corr)] <- 0
   
-  # sub metric 1: degree of connectedness
+  #=======sub metric 1: degree of connectedness=======
   tab_corr$degree <- tab_corr$num_neighbors/length(OBJECTIDs_to_keep)
-  # sub metric 2: clustering coefficient
+  #=======sub metric 2: clustering coefficient=======
   tab_corr$clustering_coeff <- tab_corr$common_neighbors/tab_corr$num_neighbors
+  tab_corr[is.na(tab_corr$clustering_coeff), ]$clustering_coeff <- 0
   
-  # sub metric 3: compartmentalization
+  #======sub metric 3: compartmentalization======
   # 3-1 get neighbors' node degrees
   tab_corr$neighbors_degree <- 0
   tab_corr$average_neighbors_degree <- 0
@@ -410,7 +414,37 @@ for (n in 1:n_iter) {
 
   
   
+  
+  #=========Step3 Summarize on the dropped patches=========
+  # might need to convert to raster
+  dropped_pa_to_ras <- dplyr::group_by(dropped_pa) %>% summarize()
+  r1 <- raster()
+  extent(r1) <- extent(dropped_pa)
+  res(r1) <- 1000 # I am testing with coarser grain for speed
+  ras_dropped_pa <- rasterize(dropped_pa_to_ras, r1)
+  # mean patch area
+  mpa <- lsm_p_area(ras_dropped_pa, directions = 8)
+  iters[nrow(iters), ]$mean_patch_area = mean(mpa$value)
+  # mean patch perimeter
+  mpp <- lsm_p_perim(ras_dropped_pa, directions = 8)
+  iters[nrow(iters), ]$mean_patch_peri = mean(mpp$value)
+  # mean patch shape index 
+  mpsi <- lsm_p_shape(ras_dropped_pa, directions = 8)
+  iters[nrow(iters), ]$mean_patch_shape = mean(mpsi$value)
+  # total edge
+  te <- lsm_c_te(ras_dropped_pa, directions = 8, count_boundary = FALSE)
+  iters[nrow(iters), ]$total_edge = mean(te$value)
+  # edge density
+  ed <- lsm_c_ed(ras_dropped_pa, directions = 8, count_boundary = FALSE)
+  iters[nrow(iters), ]$edge_density = mean(ed$value)
+  
+  end.time <- Sys.time()
+  time.taken <- end.time - start.time
+  print(time.taken)
+  
 }
 
+iterspath <- paste0(getwd(), '\\results\\100iterations_Oct03.csv')
+write.csv(iters, iterspath, row.names = FALSE)
 
-#=========Step3 visualization========
+#=========Step4 visualization========
