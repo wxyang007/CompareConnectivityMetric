@@ -23,7 +23,7 @@ setwd('~/')
 # on desktop
 wd <- 'C:/Users/wyang80/Desktop/CONN_MEASURE/data/CA'
 setwd(wd)
-coneforfolder = 'C:/Users/wyang80/Desktop/CONN_MEASURE/data/CA/conefor_results'
+coneforfolder = 'C:/Users/wyang80/Desktop/CONN_MEASURE/data/CA/conefor_results_2'
 
 shp <- read_sf('ca_pa_file_fixed.shp')
 # on desktop
@@ -51,8 +51,9 @@ non_ca_pa$ifTarget = 0
 n_ca_pa <- nrow(ca_pa)
 
 
-# read in the near table
+# read in the near table and keep only those smaller than 10km
 ca_neartab <- read.csv('near_tab_CA.csv')
+ca_neartab <- ca_neartab[ca_neartab$NEAR_DIST <= 10000,]
 
 # create a table to store all the iterations
 iters <- data.frame(matrix(ncol = 28, nrow = 0))
@@ -215,7 +216,7 @@ for (n in 1:n_iter) {
                                 distance_thresholds = 10000,
                                 probability = 0.5,
                                 write = NULL)
-  iters[nrow(iters), ]$bc = mean(centrality)
+  iters[nrow(iters), ]$bc = mean(centrality$BWC)
   
   #====metric vector 9 and after: clustering coefficient and others====
   neartab_corr <- all_only_pa_neartab[all_only_pa_neartab$NEAR_DIST <= 10000, ]
@@ -444,7 +445,8 @@ for (n in 1:n_iter) {
   
 }
 
-iterspath <- paste0(getwd(), '\\results\\100iterations_Oct03.csv')
+iterspath <- paste0(getwd(), '\\results\\100iterations_Oct16.csv')
 write.csv(iters, iterspath, row.names = FALSE)
 
 #=========Step4 visualization========
+nrow(iters)
