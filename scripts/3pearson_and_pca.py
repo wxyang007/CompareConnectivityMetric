@@ -181,3 +181,22 @@ ax.set_xticklabels(
 )
 plt.subplots_adjust(bottom = 0.3)
 plt.show()
+
+
+# another heatmap
+dfpval = pd.read_csv(r'/Users/wenxinyang/Desktop/GitHub/TemporalChangeConn/results/value_ks_test_pvalues.csv')
+
+
+dfpval.columns = full_metric_cols
+dfpval.index = full_metric_cols
+plt.figure(figsize = (20, 10))
+ax = sns.heatmap(dfpval, annot = True, cmap = 'Spectral')
+ax.set_xticklabels(
+    ax.get_xticklabels(),
+    rotation = 25,
+    horizontalalignment='right'
+)
+plt.subplots_adjust(bottom = 0.3)
+plt.show()
+
+
