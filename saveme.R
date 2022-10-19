@@ -1,3 +1,5 @@
+library(sf)
+library(tidyverse)
 #====metric vector 4: equivalent connected area [conefor]=====
 wd <- 'C:/Users/wyang80/Desktop/CONN_MEASURE/data/CA'
 setwd(wd)
@@ -22,19 +24,50 @@ root_folder <- 'C:/Users/wyang80/Desktop/CONN_MEASURE/data/CA/results'
 setwd(root_folder)
 iters_result_path <- paste0(root_folder, '/100iterations_Oct16.csv')
 iters_result <- read.csv(iters_result_path, sep = ",")
-
-shp <- read_sf('ca_pa_file_fixed.shp')
+iters_result$area_buff_1 <- 0
 
 for (n in 1:n_iter){
-  n = 1
-  OBJECTIDs_to_keep = as.list(as.numeric(strsplit(iters_result[1,]$objectids_to_keep, ",")[[1]]))
-  filtered_pa <- ca_pa[ca_pa$OBJECTID %in% OBJECTIDs_to_keep, ]
+  print(n)
+
+  #OBJECTIDs_to_keep = as.list(as.numeric(strsplit(iters_result[n,]$objectids_to_keep, ",")[[1]]))
+  #filtered_pa <- ca_pa[ca_pa$OBJECTID %in% OBJECTIDs_to_keep, ]
+  filtered_pa <- ca_pa
   filtered_pa$ifTarget = 1
-  sum(st_area(filtered_pa))/1000000
+  
+  # PAs to keep and non-PAs and transboundary PAs
+  keptpa_and_nonpa <- rbind(filtered_pa, non_ca_pa)
+  
+  # PAs to keep and transboundary PAs
+  all_only_pa <- keptpa_and_nonpa[keptpa_and_nonpa$ifPA == 1, ]
+  
+  filtered_pa$int_area <- 0
+  
+  buffered <- st_buffer(filtered_pa, 10000)
+  st_agr(buffered) = "constant"
+  st_agr(all_only_pa) = "constant"
+  intersect <- st_intersection(buffered, all_only_pa)
+
+  intersect$area <- st_area(intersect)
+  intersect$ID.new <- 1:nrow(intersect)
+
+  buffered$contains <- st_contains(buffered, intersect)
+  
+  buffered$int_area <- 0
+  
+  for (x in 1:nrow(buffered)) {
+    a <- buffered[x, ]$contains[1]
+    b <- intersect[intersect$ID.new %in% a[[1]],]
+    buffered[x,]$int_area <- as.numeric(sum(b$area))
+  }
+  
+  intersected_area_buff <- buffered$int_area
+  print(mean(intersected_area_buff))
+  
+  iters_result[n, ]$area_buff_1 = mean(intersected_area_buff)
   
 }
 
-
+write.table(iters_result, paste0(root_folder, '/100iterations_Oct16_rev.csv'), sep = ',', row.names = FALSE)
 
 
 # 1

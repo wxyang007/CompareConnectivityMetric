@@ -122,20 +122,29 @@ for (n in 1:n_iter) {
   iters[nrow(iters), ]$nn_d = mean(nn_d$NEAR_DIST)
   
   #====metric vector 2: area of habitat within buffer====
+  filtered_pa$int_area <- 0
   buffered <- st_buffer(filtered_pa, 10000)
+  st_agr(buffered) = "constant"
+  st_agr(all_only_pa) = "constant"
   intersect <- st_intersection(buffered, all_only_pa)
+  
   intersect$area <- st_area(intersect)
   intersect$ID.new <- 1:nrow(intersect)
-  filtered_pa$contains <- st_contains(filtered_pa, intersect)
-  filtered_pa$int_area <- 0
-  for (x in 1:nrow(filtered_pa)) {
-    a <- filtered_pa[x, ]$contains[1]
-    b <- intersect[intersect$ID.new %in% a[[1]], ]
-    #sum(b$area)
-    filtered_pa[x,]$int_area <- as.numeric(sum(b$area))
+  
+  buffered$contains <- st_contains(buffered, intersect)
+  
+  buffered$int_area <- 0
+  
+  for (x in 1:nrow(buffered)) {
+    a <- buffered[x, ]$contains[1]
+    b <- intersect[intersect$ID.new %in% a[[1]],]
+    buffered[x,]$int_area <- as.numeric(sum(b$area))
   }
-  intersected_area <- filtered_pa$int_area
-  iters[nrow(iters), ]$area_buff = mean(intersected_area)
+  
+  intersected_area_buff <- buffered$int_area
+  print(mean(intersected_area_buff))
+  
+  iters_result[n, ]$area_buff_1 = mean(intersected_area_buff)
   
   #====metric vector 3: proximity index====
   all_only_pa$prox <- proximity.index(all_only_pa, max.dist = 10000)

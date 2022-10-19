@@ -6,7 +6,7 @@ conefor_folder = 'C:/Users/wyang80/Desktop/CONN_MEASURE/data/CA/conefor_results_
 
 n_iter = 100
 
-iters_result_path <- paste0(root_folder, '/100iterations_Oct16.csv')
+iters_result_path <- paste0(root_folder, '/100iterations_Oct16_rev.csv')
 iters_result <- read.csv(iters_result_path, sep = ",")
 
 for (i in 1:n_iter) {
