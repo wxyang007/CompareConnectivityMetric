@@ -1,5 +1,3 @@
-import pandas as pd
-import seaborn as sns
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -30,6 +28,7 @@ rankcols = ['rank_' + x for x in cols]
 dcols = ['d_' + x for x in cols]
 pcols = ['p_' + x for x in cols]
 rankpcols = ['rank_' + x for x in pcols]
+normpcols = ['norm_' + x for x in pcols]
 
 def normalizeField(fieldname):
     newname = 'norm_' + fieldname
@@ -114,3 +113,71 @@ plotPearsonCorrMatrix(dfrankpcorr, "Correlation among ranks of percent changes")
 
 
 # ======= pca ======
+# values
+# first, normalize
+for f in cols:
+    normalizeField(f)
+dfnormvals = df[normcols]
+
+x1 = dfnormvals.values
+x1 = StandardScaler().fit_transform(x1)
+pca = PCA()
+principalComponentsval = pca.fit(x1)
+principalComponentsval_arr = pca.fit_transform(x1) # pca scores
+loadings_val = principalComponentsval.components_
+principalComponentsval.explained_variance_ratio_
+np.cumsum(principalComponentsval.explained_variance_ratio_)
+principalComponentsval.explained_variance_
+num_pc_val = principalComponentsval.n_features_
+
+pc_val_list = ['pc' + str(i) for i in list(range(1, num_pc_val + 1))]
+loadings_val_df = pd.DataFrame.from_dict(dict(zip(pc_val_list, loadings_val)))
+loadings_val_df['variable'] = loadings_val_df.columns.values
+
+# plot
+plot_transpose_loadings_val = loadings_val_df[['pc1', 'pc2', 'pc3']].transpose()
+plot_transpose_loadings_val.columns = full_metric_cols
+plt.figure(figsize = (10, 3))
+ax = sns.heatmap(plot_transpose_loadings_val, annot = True, cmap = 'Spectral')
+ax.set_xticklabels(
+    ax.get_xticklabels(),
+    rotation = 25,
+    horizontalalignment='right'
+)
+plt.subplots_adjust(bottom = 0.3)
+plt.show()
+
+# percent change values
+
+# first, normalize
+for f in pcols:
+    normalizeField(f)
+dfnormp = df[normpcols]
+
+x2 = dfnormp.values
+x2 = StandardScaler().fit_transform(x2)
+pca_p = PCA()
+principalComponentsp = pca_p.fit(x1)
+principalComponentsp_arr = pca_p.fit_transform(x1) # pca scores
+loadings_p = principalComponentsp.components_
+principalComponentsp.explained_variance_ratio_
+np.cumsum(principalComponentsp.explained_variance_ratio_)
+principalComponentsp.explained_variance_
+num_pc_p = principalComponentsp.n_features_
+
+pc_p_list = ['pc' + str(i) for i in list(range(1, num_pc_p + 1))]
+loadings_p_df = pd.DataFrame.from_dict(dict(zip(pc_p_list, loadings_p)))
+loadings_p_df['variable'] = loadings_p_df.columns.values
+
+# plot
+plot_transpose_loadings_p = loadings_p_df[['pc1', 'pc2', 'pc3']].transpose()
+plot_transpose_loadings_p.columns = full_metric_cols
+plt.figure(figsize = (10, 3))
+ax = sns.heatmap(plot_transpose_loadings_p, annot = True, cmap = 'Spectral')
+ax.set_xticklabels(
+    ax.get_xticklabels(),
+    rotation = 25,
+    horizontalalignment='right'
+)
+plt.subplots_adjust(bottom = 0.3)
+plt.show()
