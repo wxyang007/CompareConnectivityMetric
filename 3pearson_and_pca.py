@@ -184,11 +184,12 @@ plt.show()
 
 
 # another heatmap
-dfpval = pd.read_csv(r'/Users/wenxinyang/Desktop/GitHub/TemporalChangeConn/results/value_ks_test_pvalues.csv')
+dfpval = pd.read_csv(r'/Users/wenxinyang/Desktop/GitHub/TemporalChangeConn/results/p_ks_test_pvalues_1024.csv')
 
 
 dfpval.columns = full_metric_cols
 dfpval.index = full_metric_cols
+
 plt.figure(figsize = (20, 10))
 ax = sns.heatmap(dfpval, annot = True, cmap = 'Spectral')
 ax.set_xticklabels(

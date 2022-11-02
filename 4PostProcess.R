@@ -1,7 +1,10 @@
 library(readxl)
+library(reshape2)
 library(ggridges)
 library(ggplot2)
 library(corrplot)
+library(RColorBrewer)
+library(tidyverse)
 
 setwd('~/')
 # wd <- file.path(getwd(), 'Desktop', 'AProtconn','data','CA')
@@ -13,7 +16,37 @@ wd <- 'C:/Users/wyang80/Desktop/CONN_MEASURE/data/CA'
 setwd(wd)
 
 path_ca <- paste0(wd, '\\results\\100iterations_Oct16_final.csv')
-ca_df <- read.table('C:/Users/wyang80/Desktop/CONN_MEASURE/data/CA/results/100iterations_Oct16_final.csv', sep = ',')
+ca_df <- read.table(path_ca, sep = ',')
+colnames(ca_df) <- ca_df[1,]
+ca_df <- ca_df[-1, ]
+
+num_cols <- c("num_iter", "prot",
+               "nn_d", "area_buff", "prox", "eca", "flux",
+               "awf", "pc", "protconn", 
+               "iic", "bc", 
+               "degree", "clustering_coeff", "compartment","cohesion", "gyrate",
+               "mean_patch_area", "mean_patch_peri", "mean_patch_shape", "total_edge",
+               "edge_density")
+ca_df$num_iter <- as.numeric(ca_df$num_iter)
+ca_df$prot <- as.numeric(ca_df$prot)
+ca_df$nn_d <- as.numeric(ca_df$nn_d)
+ca_df$area_buff <- as.numeric(ca_df$area_buff)
+ca_df$prox <- as.numeric(ca_df$prox)
+ca_df$eca <- as.numeric(ca_df$eca)
+ca_df$flux <- as.numeric(ca_df$flux)
+ca_df$awf <- as.numeric(ca_df$awf)
+ca_df$pc <- as.numeric(ca_df$pc)
+ca_df$protconn <- as.numeric(ca_df$protconn)
+ca_df$iic <- as.numeric(ca_df$iic)
+ca_df$bc <- as.numeric(ca_df$bc)
+ca_df$degree <- as.numeric(ca_df$degree)
+ca_df$clustering_coeff <- as.numeric(ca_df$clustering_coeff)
+ca_df$compartment <- as.numeric(ca_df$compartment)
+ca_df$cohesion <- as.numeric(ca_df$cohesion)
+ca_df$gyrate <- as.numeric(ca_df$gyrate)
+
+
+# ca_df <- read.table('C:/Users/wyang80/Desktop/CONN_MEASURE/data/CA/results/100iterations_Oct16_final.csv', sep = ',')
 
 path_all_ca <- paste0(wd, '\\results\\ca.csv')
 all_ca_df <- read.table(path_all_ca, sep = ',')
@@ -41,8 +74,8 @@ gyrate_ca <- as.numeric(all_ca_df[1,]$gyrate)
 
 # ====== compute change value ======
 ca_df$d_prot <- prot_ca - ca_df$prot
-ca_df$d_nnd <- nnd_ca - ca_df$nn_d
-ca_df$d_areabuff <- area_buff_ca - ca_df$area_buff
+ca_df$d_nn_d <- nnd_ca - ca_df$nn_d
+ca_df$d_area_buff <- area_buff_ca - ca_df$area_buff
 ca_df$d_prox <- prox_ca - ca_df$prox
 ca_df$d_eca <- eca_ca - ca_df$eca
 ca_df$d_flux <- flux_ca - ca_df$flux
@@ -52,33 +85,33 @@ ca_df$d_protconn <- protconn_ca - ca_df$protconn
 ca_df$d_iic <- iic_ca - ca_df$iic
 ca_df$d_bc <- bc_ca - ca_df$bc
 ca_df$d_degree <- degree_ca - ca_df$degree
-ca_df$d_clus <- clus_ca - ca_df$clustering_coeff
-ca_df$d_comp <- comp_ca - ca_df$compartment
-ca_df$d_coh <- coh_ca - ca_df$cohesion
+ca_df$d_clustering_coeff <- clus_ca - ca_df$clustering_coeff
+ca_df$d_compartment <- comp_ca - ca_df$compartment
+ca_df$d_cohesion <- coh_ca - ca_df$cohesion
 ca_df$d_gyrate <- gyrate_ca - ca_df$gyrate
 
 # ======= compute all percent change values ======
 # the percentage of decrease in connectivity
-ca_df$p_prot <- 100*(prot_ca - ca_df$prot)/prot_ca
-ca_df$p_nnd <- 100*(nnd_ca - ca_df$nn_d)/nnd_ca
-ca_df$p_areabuff <- 100*(area_buff_ca - ca_df$area_buff)/area_buff_ca
-ca_df$p_prox <- 100*(prox_ca - ca_df$prox)/prox_ca
-ca_df$p_eca <- 100*(eca_ca - ca_df$eca)/eca_ca
-ca_df$p_flux <- 100*(flux_ca - ca_df$flux)/flux_ca
-ca_df$p_awf <- 100*(awf_ca - ca_df$awf)/awf_ca
-ca_df$p_pc <- 100*(pc_ca - ca_df$pc)/pc_ca
-ca_df$p_protconn <- 100*(protconn_ca - ca_df$protconn)/protconn_ca
-ca_df$p_iic <- 100*(iic_ca - ca_df$iic)/iic_ca
-ca_df$p_bc <- 100*(bc_ca - ca_df$bc)/bc_ca
-ca_df$p_degree <- 100*(degree_ca - ca_df$degree)/degree_ca
-ca_df$p_clus <- 100*(clus_ca - ca_df$clustering_coeff)/clus_ca
-ca_df$p_comp <- 100*(comp_ca - ca_df$compartment)/comp_ca
-ca_df$p_coh <- 100*(coh_ca - ca_df$cohesion)/coh_ca
-ca_df$p_gyrate <- 100*(gyrate_ca - ca_df$gyrate)/gyrate_ca
+ca_df$p_prot <- 100*(prot_ca - ca_df$prot)/ca_df$prot
+ca_df$p_nn_d <- 100*(nnd_ca - ca_df$nn_d)/ca_df$nn_d
+ca_df$p_area_buff <- 100*(area_buff_ca - ca_df$area_buff)/ca_df$area_buff
+ca_df$p_prox <- 100*(prox_ca - ca_df$prox)/ca_df$prox
+ca_df$p_eca <- 100*(eca_ca - ca_df$eca)/ca_df$eca
+ca_df$p_flux <- 100*(flux_ca - ca_df$flux)/ca_df$flux
+ca_df$p_awf <- 100*(awf_ca - ca_df$awf)/ca_df$awf
+ca_df$p_pc <- 100*(pc_ca - ca_df$pc)/ca_df$pc
+ca_df$p_protconn <- 100*(protconn_ca - ca_df$protconn)/ca_df$protconn
+ca_df$p_iic <- 100*(iic_ca - ca_df$iic)/ca_df$iic
+ca_df$p_bc <- 100*(bc_ca - ca_df$bc)/ca_df$bc
+ca_df$p_degree <- 100*(degree_ca - ca_df$degree)/ca_df$degree
+ca_df$p_clustering_coeff <- 100*(clus_ca - ca_df$clustering_coeff)/ca_df$clustering_coeff
+ca_df$p_compartment <- 100*(comp_ca - ca_df$compartment)/ca_df$compartment
+ca_df$p_cohesion <- 100*(coh_ca - ca_df$cohesion)/ca_df$cohesion
+ca_df$p_gyrate <- 100*(gyrate_ca - ca_df$gyrate)/ca_df$gyrate
 
-pchange_cols <- c('p_prot', 'p_nnd', 'p_areabuff', 'p_prox', 'p_eca', 'p_flux', 'p_awf',
-                'p_pc', 'p_protconn', 'p_iic', 'p_bc', 'p_degree', 'p_clus', 'p_comp',
-                'p_comp', 'p_coh', 'p_gyrate')
+pchange_cols <- c('p_prot', 'p_nn_d', 'p_area_buff', 'p_prox', 'p_eca', 'p_flux', 'p_awf',
+                'p_pc', 'p_protconn', 'p_iic', 'p_bc', 'p_degree', 'p_clustering_coeff', 
+                'p_compartment','p_cohesion', 'p_gyrate')
 
 # ====== prepare for viz ======
 curr_cols <- c("num_iter", "objectids_to_keep", "prot",
@@ -107,14 +140,20 @@ full_metric_cols <- c("Prot", "Nearest distance neighbor", "Habitat (area) withi
 
 
 scale01 <- function(x){(x-min(x))/(max(x)-min(x))}
+
 for (metric in metric_cols) {
   rk_metric <- paste0("rk_", metric)
   norm_metric <- paste0("norm_", metric)
   ca_df[, rk_metric] <- rank(ca_df[, metric])
   ca_df[, norm_metric] <- scale01(ca_df[, metric])
+  
+  p_metric <- paste0("p_", metric)
+  rk_p_metric <- paste0("rk_p_", metric)
+  norm_p_metric <- paste0("norm_p_", metric)
+  ca_df[, rk_p_metric] <- rank(ca_df[, p_metric])
+  ca_df[, norm_p_metric] <- scale01(ca_df[, p_metric])
 }
 
-sapply(ca_df, class)
 
 #metric_cols <- c("prot", "nn_d", "area_buff", "prox", "eca", "flux",
 #                 "awf", "pc", "protconn", "iic", "bc", 
@@ -122,29 +161,76 @@ sapply(ca_df, class)
 
 
 df_all_norm_metrics <- data.frame(row.names = c("value", "metric"))
+df_all_metrics <- data.frame(row.names =c("value", "metric"))
+
+df_all_norm_percentchange <- data.frame(row.names = c("value", "metric"))
+df_all_percentchange <- data.frame(row.names = c("value", "metric"))
 
 for (i in 1:length(metric_cols)) {
   metric <- metric_cols[i]
   full_metric_name <- full_metric_cols[i]
-  norm_metric <- paste0("norm_", metric)
-  df_metric <- data.frame(ca_df[, norm_metric])
+  
+  df_metric <- data.frame(ca_df[, metric])
   colnames(df_metric) <- c("value")
   df_metric$metric <- full_metric_name
-  df_all_norm_metrics <- rbind(df_all_norm_metrics, df_metric)
+  df_all_metrics <- rbind(df_all_metrics, df_metric)
+  
+  norm_metric <- paste0("norm_", metric)
+  df_norm_metric <- data.frame(ca_df[, norm_metric])
+  colnames(df_norm_metric) <- c("value")
+  df_norm_metric$metric <- full_metric_name
+  df_all_norm_metrics <- rbind(df_all_norm_metrics, df_norm_metric)
+  
+  
+  p_metric = paste0("p_", metric)
+  norm_p_metric = paste0("norm_p_", metric)
+  df_p_norm_metric <- data.frame(ca_df[, norm_p_metric])
+  df_p_metric <- data.frame(ca_df[, p_metric])
+  colnames(df_p_norm_metric) <- c("value")
+  colnames(df_p_metric) <- c("value")
+  df_p_norm_metric$metric <- full_metric_name
+  df_p_metric$metric <- full_metric_name
+  df_all_norm_percentchange <- rbind(df_all_norm_percentchange, df_p_norm_metric)
+  df_all_percentchange <- rbind(df_all_percentchange, df_p_metric)
+  
 }
+
 
 
 # ====== step 1: agreement on highs and lows ======
 # ====== 1.1 pearson's correlation ======
 # for percent change
+new_cols <- c("Proximity index", "Nearest distance neighbor", "Compartmentalization", "Clustering coefficient",
+              "Flux", "Node degree", "Area weighted mean patch gyration", "Betweenness centrality",
+              "Area weighted flux", 
+              "Patch cohesion index", "Integral index of connectivity", "Probability of connectivity",
+              "Equivalent connected area", "ProtConn", "Habitat (area) within buffer", "Prot")
+# FPC, hclust, AOE, alphabet
+df_v = ca_df[, metric_cols] # this is for metric values
+colnames(df_v) <- full_metric_cols
+df_v = df_v[, new_cols]
+sapply(df_v, class)
+# cor(df_v, method = "pearson")
+corrplot(cor(df_v), order = 'original', tl.col = 'black', tl.srt = 45)
+
 df_p = ca_df[, pchange_cols]
-sapply(df_p, class)
-cor(df_p, method = "pearson")
-corrplot(cor(df_p), order = 'hclust', tl.col = 'black', tl.srt = 45)
+colnames(df_p) <- full_metric_cols
+df_p = df_p[, new_cols]
+corrplot(cor(df_p), order = 'original', tl.col = 'black', tl.srt = 45)
+
+rk_cols <- c()
+for (x in metric_cols){
+  rk_cols <- append(rk_cols, paste0("rk_", x))
+  }
+df_r = ca_df[, rk_cols]
+colnames(df_r) <- full_metric_cols
+df_r <- df_r[, new_cols]
+corrplot(cor(df_r), order = 'original', tl.col = 'black', tl.srt = 45)
+
 
 # for value
-df_normv = ca_df[, norm_cols]
-corrplot(cor(df_normv), order = 'hclust', tl.col = 'black', tl.srt = 45)
+#df_normv = ca_df[, norm_cols]
+#corrplot(cor(df_normv), order = 'hclust', tl.col = 'black', tl.srt = 45)
 
 
 # ====== 1.2 pca ======
@@ -152,54 +238,133 @@ corrplot(cor(df_normv), order = 'hclust', tl.col = 'black', tl.srt = 45)
 
 # ====== step 2: examine similarities in dsitribution ======
 # ====== 2.1.1 overlayed histograms ======
-ggplot(df_all_norm_metrics, aes(value, fill = metric)) + geom_density(alpha = 0.2)
+
+df_all_metrics$metric <- factor(df_all_metrics$metric, levels = rev(new_cols))
+df_all_norm_metrics$metric <- factor(df_all_norm_metrics$metric, levels = rev(new_cols))
+
+df_all_percentchange$metric <- factor(df_all_percentchange$metric, levels = rev(new_cols))
+df_all_norm_percentchange$metric <- factor(df_all_norm_percentchange$metric, levels = rev(new_cols))
+
+
+ggplot(df_all_norm_metrics, aes(value, color = metric)) + geom_density(alpha = 0.2)
+ggplot(df_all_norm_percentchange, aes(value, color = metric)) + geom_density(alpha = 0.2)
+
+ggplot(df_all_metrics, aes(value, fill = metric)) + geom_density(alpha = 0.2)
+ggplot(df_all_percentchange, aes(value, fill = metric)) + geom_density(alpha = 0.2)
+
+
+
 
 
 # =======2.1.2 ridge plot ======
+# df_test <- df_all_norm_metrics[df_all_norm_metrics$metric == 'Proximity index',]
+# df_new_all_metrics <- df_all_metrics
+# colnames(df_new_all_metrics)
 ggplot(df_all_norm_metrics, aes(x = value, y = metric, fill = metric)) +
   geom_density_ridges() +
   theme_ridges() + 
   theme(legend.position = "none")
 
-
+ggplot(df_all_percentchange, aes(x = value, y = metric, fill = metric)) +
+  geom_density_ridges() +
+  theme_ridges() + 
+  theme(legend.position = "none")
 # ====== 2.2 Kolmogorov-Smirnov test ======
 # --> create a matrix out of it
-hist_prot <- hist(ca_df$norm_prot)
-hist_prot$counts <- cumsum(hist_prot$counts)
-plot(hist_prot)
+df_ksval_pval <- data.frame(matrix(0, nrow = length(metric_cols), ncol = length(metric_cols)))
+df_ksp_pval <- data.frame(matrix(0, nrow = length(metric_cols), ncol = length(metric_cols)))
 
-hist_protconn <- hist(ca_df$norm_protconn)
-hist_protconn$counts <- cumsum(hist_protconn$counts)
+df_ksval <- data.frame(matrix(0, nrow = length(metric_cols), ncol = length(metric_cols)))
+df_ksp <- data.frame(matrix(0, nrow = length(metric_cols), ncol = length(metric_cols)))
 
-hist_iic <- hist(ca_df$norm_iic)
-hist_iic$counts <- cumsum(hist_iic$counts)
+colnames(df_ksval_pval) = metric_cols
+colnames(df_ksp_pval) = metric_cols
 
-hist_areabuff <- hist(ca_df$norm_area_buff)
-hist_areabuff$counts <- cumsum(hist_areabuff$counts)
+colnames(df_ksval) = metric_cols
+colnames(df_ksp) = metric_cols
 
-hist_prox <- hist(ca_df$norm_prox)
-hist_prox$counts <- cumsum(hist_prox$counts)
+rownames(df_ksval_pval) = metric_cols
+rownames(df_ksp_pval) = metric_cols
 
-hist_cohesion <- hist(ca_df$norm_cohesion)
-hist_cohesion$counts <- cumsum(hist_cohesion$counts)
+rownames(df_ksval) = metric_cols
+rownames(df_ksp) = metric_cols
 
-hist_gyrate <- hist(ca_df$norm_gyrate)
-hist_gyrate$counts <- cumsum(hist_gyrate$counts)
+for (i in 1:length(metric_cols)) {
+  metric <- metric_cols[i]
+  full_metric_name <- full_metric_cols[i]
+  
+  p_metric <- paste0("p_", metric)
+  
+  norm_metric <- paste0("norm_", metric)
+  norm_p_metric <- paste0("norm_p_", metric)
+  
+  #hist1 <- hist(ca_df[, norm_metric])
+  #hist1$counts <- cumsum(hist1$counts)
+  
+  #histp1 <- hist(ca_df[, norm_p_metric])
+  #histp1$counts <- cumsum(histp1$counts)
+  
+  for (j in 1:length(metric_cols)){
+    if(TRUE) {
+      metric2 <- metric_cols[j]
+      full_metric_name_j <- full_metric_cols[j]
+      
+      p_metric2 <- paste0("p_", metric2)
+      
+      norm_metric2 <- paste0("norm_", metric2)
+      norm_p_metric2 <- paste0("norm_p_", metric2)
+      
+      #hist2 <- hist(ca_df[, norm_metric2])
+      #hist2$counts <- cumsum(hist2$counts)
+      
+      #histp2 <- hist(ca_df[, norm_p_metric2])
+      #histp2$counts <- cumsum(histp2$counts)
+      
+      ks_val <- ks.test(ca_df[, metric], ca_df[, metric2])
+      ks_p <- ks.test(ca_df[, p_metric], ca_df[, p_metric2])
+      
+      df_ksval[i, j] <- ks_val$statistic
+      df_ksval_pval[i, j] <- ks_val$p.value
+      
+      df_ksp[i, j] <- ks_p$statistic
+      df_ksp_pval[i, j] <- ks_p$p.value
+      
+      print(metric)
+      print(metric2)
+    }
+  }
+  
+}
 
-hist_degree <- hist(ca_df$norm_degree)
-hist_degree$counts <- cumsum(hist_degree$counts)
+root_folder <- 'C:/Users/wyang80/Desktop/CONN_MEASURE/data/CA/results'
+write.table(df_ksval_pval, paste0(root_folder, '/value_ks_test_pvalues_1025_raw.csv'), sep = ',',
+            row.names = FALSE)
+write.table(df_ksp_pval, paste0(root_folder, '/p_ks_test_pvalues_1025_raw.csv'), sep = ',',
+            row.names = FALSE)
 
-hist_clu_coeff <- hist(ca_df$norm_clustering_coeff)
-hist_clu_coeff$counts <- cumsum(hist_clu_coeff$counts)
+write.table(df_ksval, paste0(root_folder, '/value_ks_test_statistic_1025_raw.csv'), sep = ',',
+            row.names = FALSE)
+write.table(df_ksp, paste0(root_folder, '/p_ks_test_statistic_1025_raw.csv'), sep = ',',
+            row.names = FALSE)
 
-hist_compart <- hist(ca_df$norm_compartment)
-hist_compart$counts <- cumsum(hist_compart$counts)
+reordered <- read.csv(paste0(root_folder, '/reordered_ks_pvalues_1024.csv'), sep = ',')
+mat_reordered <- data.matrix(reordered)
+colnames(mat_reordered) <- new_cols
+rownames(mat_reordered) <- new_cols
 
-hist_eca <- hist(ca_df$norm_eca)
-hist_eca$counts <- cumsum(hist_eca$counts)
 
-ks.test(hist_iic$counts, hist_prox$counts)
-ks.test(hist_prot$counts, hist_protconn$counts)
+colnames(reordered) <- new_cols
+rownames(reordered) <- new_cols
+
+
+longData <- melt(mat_reordered)
+ggplot(longData, aes(x = Var2, y = Var1)) +
+  geom_raster(aes(fill = value)) +
+  scale_fill_gradient(low = "white", high = "red") +
+  # labs(x = "x", y = "y", title = "title") +
+  theme_bw() + theme(axis.text.x = element_text(size = 9, angle = 25, vjust = 0.6, hjust = 0.9),
+                     axis.text.y = element_text(size = 9),
+                     plot.title = element_text(size = 11))
 
 
 # ====== step 3: examine associations with network characteristics =====

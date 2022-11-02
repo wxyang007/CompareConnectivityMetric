@@ -142,13 +142,16 @@ for (n in 1:n_iter) {
   }
   
   intersected_area_buff <- buffered$int_area
-  print(mean(intersected_area_buff))
+  # print(mean(intersected_area_buff))
   
   iters_result[n, ]$area_buff_1 = mean(intersected_area_buff)
   
   #====metric vector 3: proximity index====
   all_only_pa$prox <- proximity.index(all_only_pa, max.dist = 10000)
   results_pa_prox <- all_only_pa[all_only_pa$ifTarget == 1, ]$prox
+  
+  # print(mean(results_pa_prox))
+  
   iters[nrow(iters), ]$prox = mean(results_pa_prox)
   
   #====metric vector 4: equivalent connected area [conefor]=====
