@@ -48,7 +48,7 @@ def calcChange(fieldname):
     percentchangename = 'p_' + fieldname
 
     df[changename] = ca_val - df[fieldname]
-    df[percentchangename] = 100*df[changename]/ca_val
+    df[percentchangename] = 100*df[changename]/df[fieldname]
 
 
 def calculate_pvalues(df):
@@ -147,7 +147,7 @@ ax.set_xticklabels(
 plt.subplots_adjust(bottom = 0.3)
 plt.show()
 
-# percent change values
+# percent change values also need to be normalized
 
 # first, normalize
 for f in pcols:
@@ -158,7 +158,7 @@ x2 = dfnormp.values
 x2 = StandardScaler().fit_transform(x2)
 pca_p = PCA()
 principalComponentsp = pca_p.fit(x1)
-principalComponentsp_arr = pca_p.fit_transform(x1) # pca scores
+principalComponentsp_arr = pca_p.fit_transform(x2) # pca scores
 loadings_p = principalComponentsp.components_
 principalComponentsp.explained_variance_ratio_
 np.cumsum(principalComponentsp.explained_variance_ratio_)
