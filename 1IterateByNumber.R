@@ -424,6 +424,17 @@ for (n in 1:n_iter) {
   gyrate <- lsm_p_gyrate(ras_pa_id, directions = 8, cell_center = FALSE) # patch level
   gyrate <- gyrate[gyrate$class %in% OBJECTIDs_to_keep, ]
   iters[nrow(iters), ]$gyrate = mean(gyrate$value)
+  
+  # the following code is for area weighted gyration
+  area_patch <- lsm_p_area(ras_pa_id)
+  aw_gyrate <- dplyr::left_join(x = gyrate, y = area_patch, 
+                                       by = c("layer", "level", "class", "id")) %>%
+    dplyr::mutate(value.w = value.x * value.y) %>%
+    dplyr::group_by(class) %>%
+    dplyr::summarise(value.am = sum(value.w) / sum(value.y)) 
+  
+  iters[nrow(iters), ]$aw_gyrate = aw_gyrate
+  
 
   
   

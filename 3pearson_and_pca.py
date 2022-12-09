@@ -9,19 +9,23 @@ from bioinfokit.visuz import cluster
 from pylab import savefig
 
 # ======== preparation ======
-df = pd.read_csv(r'/Users/wenxinyang/Desktop/GitHub/TemporalChangeConn/results/100iterations_Oct16_final.csv')
+df = pd.read_csv(r'/Users/wenxinyang/Desktop/GitHub/TemporalChangeConn/results/100iterations_Dec06_rev.csv')
 dfca = pd.read_csv(r'/Users/wenxinyang/Desktop/GitHub/TemporalChangeConn/results/ca.csv')
 
 cols = list(("prot", "nn_d", "area_buff", "prox", "eca", "flux",
                  "awf", "pc", "protconn", "iic", "bc",
-                 "degree", "clustering_coeff", "compartment","cohesion", "gyrate"))
+                 "degree", "clustering_coeff", "compartment","cohesion",
+             "gyrate",
+             "aw_gyrate"))
 
 full_metric_cols = ("Prot", "Nearest distance neighbor", "Habitat (area) within buffer",
                       "Proximity index", "Equivalent connected area", "Flux",
                       "Area weighted flux", "Probability of connectivity", "ProtConn",
                       "Integral index of connectivity", "Betweenness centrality",
                       "Node degree", "Clustering coefficient", "Compartmentalization",
-                      "Patch cohesion index", "Area weighted mean patch gyration")
+                      "Patch cohesion index",
+                    "Patch gyration",
+                    "Area weighted mean patch gyration")
 
 normcols = ['norm_' + x for x in cols]
 rankcols = ['rank_' + x for x in cols]
@@ -91,25 +95,25 @@ def plotPearsonCorrMatrix(dfPearsonCorr, title):
 
 # ====== for value ======
 dfval = df[cols]
-plotPearsonCorrMatrix(dfval, "Correlation among metric values")
+# plotPearsonCorrMatrix(dfval, "Correlation among metric values")
 
 # ====== for value rank =======
 for f in cols:
     rankField(f)
 dfrankcorr = df[rankcols]
-plotPearsonCorrMatrix(dfrankcorr, "Correlation among metric value ranks")
+# plotPearsonCorrMatrix(dfrankcorr, "Correlation among metric value ranks")
 
 # ====== for percent change ======
 for f in cols:
     calcChange(f)
 dfpcorr = df[pcols]
-plotPearsonCorrMatrix(dfpcorr, "Correlation among percent changes")
+# plotPearsonCorrMatrix(dfpcorr, "Correlation among percent changes")
 
 # ====== for percent change rank ======
 for f in pcols:
     rankField(f)
 dfrankpcorr = df[rankpcols]
-plotPearsonCorrMatrix(dfrankpcorr, "Correlation among ranks of percent changes")
+# plotPearsonCorrMatrix(dfrankpcorr, "Correlation among ranks of percent changes")
 
 
 # ======= pca ======
@@ -135,10 +139,12 @@ loadings_val_df = pd.DataFrame.from_dict(dict(zip(pc_val_list, loadings_val)))
 loadings_val_df['variable'] = loadings_val_df.columns.values
 
 # plot
-plot_transpose_loadings_val = loadings_val_df[['pc1', 'pc2', 'pc3']].transpose()
+
+cmap1 = sns.color_palette("vlag", as_cmap=True)
+plot_transpose_loadings_val = loadings_val_df[['pc1', 'pc2', 'pc3', 'pc4']].transpose()
 plot_transpose_loadings_val.columns = full_metric_cols
 plt.figure(figsize = (10, 3))
-ax = sns.heatmap(plot_transpose_loadings_val, annot = True, cmap = 'Spectral')
+ax = sns.heatmap(plot_transpose_loadings_val, annot = True, cmap = cmap1, vmin = -1, vmax = 1)
 ax.set_xticklabels(
     ax.get_xticklabels(),
     rotation = 25,
@@ -173,7 +179,7 @@ loadings_p_df['variable'] = loadings_p_df.columns.values
 plot_transpose_loadings_p = loadings_p_df[['pc1', 'pc2', 'pc3']].transpose()
 plot_transpose_loadings_p.columns = full_metric_cols
 plt.figure(figsize = (10, 3))
-ax = sns.heatmap(plot_transpose_loadings_p, annot = True, cmap = 'Spectral')
+ax = sns.heatmap(plot_transpose_loadings_p, annot = True, cmap = cmap1, vmin = -0.6, vmax = 0.6)
 ax.set_xticklabels(
     ax.get_xticklabels(),
     rotation = 25,
@@ -184,7 +190,7 @@ plt.show()
 
 
 # another heatmap
-dfpval = pd.read_csv(r'/Users/wenxinyang/Desktop/GitHub/TemporalChangeConn/results/p_ks_test_pvalues_1024.csv')
+dfpval = pd.read_csv(r'/Users/wenxinyang/Desktop/GitHub/TemporalChangeConn/results/p_ks_test_pvalues_1207.csv')
 
 
 dfpval.columns = full_metric_cols
