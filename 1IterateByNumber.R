@@ -64,6 +64,7 @@ colnames(iters) <- c("num_iter", "objectids_to_keep", "prot",
                      "protconn_within", "protconn_contig",
                      "iic", "bc", 
                      "degree", "clustering_coeff", "compartment","cohesion", "gyrate",
+                     "aw_gyrate",
                      "mean_patch_area", "mean_patch_peri", "mean_patch_shape", "total_edge",
                      "edge_density"
                      )
@@ -422,20 +423,21 @@ for (n in 1:n_iter) {
   
   #====metric raster 2: area-weighted patch gyration====
   gyrate <- lsm_p_gyrate(ras_pa_id, directions = 8, cell_center = FALSE) # patch level
-  gyrate <- gyrate[gyrate$class %in% OBJECTIDs_to_keep, ]
-  iters[nrow(iters), ]$gyrate = mean(gyrate$value)
   
   # the following code is for area weighted gyration
   area_patch <- lsm_p_area(ras_pa_id)
+  
   aw_gyrate <- dplyr::left_join(x = gyrate, y = area_patch, 
-                                       by = c("layer", "level", "class", "id")) %>%
-    dplyr::mutate(value.w = value.x * value.y) %>%
-    dplyr::group_by(class) %>%
-    dplyr::summarise(value.am = sum(value.w) / sum(value.y)) 
+                                by = c("layer", "level", "class", "id")) %>%
+    dplyr::mutate(value.w = value.x * value.y)
   
-  iters[nrow(iters), ]$aw_gyrate = aw_gyrate
+  val_aw_gyrate = sum(aw_gyrate$value.w)/sum(aw_gyrate$value.y)
   
-
+  
+  gyrate <- gyrate[gyrate$class %in% OBJECTIDs_to_keep, ]
+  aw_gyrate <- aw_gyrate[aw_gyrate$class %in% OBJECTIDs_to_keep, ]
+  iters[nrow(iters), ]$gyrate = mean(gyrate$value)
+  iters[nrow(iters), ]$aw_gyrate = val_aw_gyrate
   
   
   

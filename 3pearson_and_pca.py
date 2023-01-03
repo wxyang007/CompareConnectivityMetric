@@ -18,14 +18,19 @@ cols = list(("prot", "nn_d", "area_buff", "prox", "eca", "flux",
              "gyrate",
              "aw_gyrate"))
 
-full_metric_cols = ("Prot", "Nearest distance neighbor", "Habitat (area) within buffer",
-                      "Proximity index", "Equivalent connected area", "Flux",
-                      "Area weighted flux", "Probability of connectivity", "ProtConn",
-                      "Integral index of connectivity", "Betweenness centrality",
-                      "Node degree", "Clustering coefficient", "Compartmentalization",
-                      "Patch cohesion index",
-                    "Patch gyration",
-                    "Area weighted mean patch gyration")
+# full_metric_cols = ("Prot", "Nearest distance neighbor", "Habitat (area) within buffer",
+#                       "Proximity index", "Equivalent connected area", "Flux",
+#                       "Area weighted flux", "Probability of connectivity", "ProtConn",
+#                       "Integral index of connectivity", "Betweenness centrality",
+#                       "Node degree", "Clustering coefficient", "Compartmentalization",
+#                       "Patch cohesion index",
+#                     "Patch gyration",
+#                     "Area weighted mean patch gyration")
+
+
+full_metric_cols = ("Prot", "Dist", "BA", "Prox", "ECA", "Flux", "AWF", "PC", "ProtConn",
+                    "IIC", "BC", "Degree", "ClusCoeff", "Compart", "Cohesion", "Gyrate",
+                    "AWGyrate")
 
 normcols = ['norm_' + x for x in cols]
 rankcols = ['rank_' + x for x in cols]
@@ -140,11 +145,15 @@ loadings_val_df['variable'] = loadings_val_df.columns.values
 
 # plot
 
-cmap1 = sns.color_palette("vlag", as_cmap=True)
-plot_transpose_loadings_val = loadings_val_df[['pc1', 'pc2', 'pc3', 'pc4']].transpose()
+cmap1 = sns.color_palette("coolwarm", as_cmap=True)
+# cmap2 = sns.diverging_palette(212, 346, as_cmap = True)
+cmap2 = sns.blend_palette(["#053061", "#fcfdfd", "#760d21"],10)
+plot_transpose_loadings_val = loadings_val_df[['pc1', 'pc2', 'pc3']].transpose()
 plot_transpose_loadings_val.columns = full_metric_cols
+plot_transpose_loadings_val.to_csv(r'/Users/wenxinyang/Desktop/GitHub/TemporalChangeConn/results/pca.csv')
+
 plt.figure(figsize = (10, 3))
-ax = sns.heatmap(plot_transpose_loadings_val, annot = True, cmap = cmap1, vmin = -1, vmax = 1)
+ax = sns.heatmap(plot_transpose_loadings_val, annot = True, cmap = cmap2, vmin = -0.6, vmax = 0.6)
 ax.set_xticklabels(
     ax.get_xticklabels(),
     rotation = 25,

@@ -5,17 +5,21 @@ library(ggplot2)
 library(corrplot)
 library(RColorBrewer)
 library(tidyverse)
+library(factoextra)
+library(FactoMineR)
+library(philentropy)
 
 setwd('~/')
-# wd <- file.path(getwd(), 'Desktop', 'AProtconn','data','CA')
+wd <- file.path(getwd(), 'Desktop', 'GitHub','TemporalChangeConn')
 
 # setwd(wd)
 
 # on desktop
-wd <- 'C:/Users/wyang80/Desktop/CONN_MEASURE/data/CA'
+# wd <- 'C:/Users/wyang80/Desktop/CONN_MEASURE/data/CA'
 setwd(wd)
 
-path_ca <- paste0(wd, '\\results\\100iterations_Oct16_final.csv')
+# path_ca <- paste0(wd, '\\results\\100iterations_Oct16_final.csv')
+path_ca <- paste0(wd, '/results/100iterations_Dec06_rev.csv')
 ca_df <- read.table(path_ca, sep = ',')
 colnames(ca_df) <- ca_df[1,]
 ca_df <- ca_df[-1, ]
@@ -24,7 +28,7 @@ num_cols <- c("num_iter", "prot",
                "nn_d", "area_buff", "prox", "eca", "flux",
                "awf", "pc", "protconn", 
                "iic", "bc", 
-               "degree", "clustering_coeff", "compartment","cohesion", "gyrate",
+               "degree", "clustering_coeff", "compartment","cohesion", "gyrate", "aw_gyrate",
                "mean_patch_area", "mean_patch_peri", "mean_patch_shape", "total_edge",
                "edge_density")
 ca_df$num_iter <- as.numeric(ca_df$num_iter)
@@ -44,11 +48,12 @@ ca_df$clustering_coeff <- as.numeric(ca_df$clustering_coeff)
 ca_df$compartment <- as.numeric(ca_df$compartment)
 ca_df$cohesion <- as.numeric(ca_df$cohesion)
 ca_df$gyrate <- as.numeric(ca_df$gyrate)
+ca_df$aw_gyrate <- as.numeric(ca_df$aw_gyrate)
 
 
 # ca_df <- read.table('C:/Users/wyang80/Desktop/CONN_MEASURE/data/CA/results/100iterations_Oct16_final.csv', sep = ',')
 
-path_all_ca <- paste0(wd, '\\results\\ca.csv')
+path_all_ca <- paste0(wd, '/results/ca.csv')
 all_ca_df <- read.table(path_all_ca, sep = ',')
 colnames(all_ca_df) <- all_ca_df[1,]
 all_ca_df <- all_ca_df[-1,]
@@ -71,6 +76,7 @@ clus_ca <- as.numeric(all_ca_df[1,]$clustering_coeff)
 comp_ca <- as.numeric(all_ca_df[1,]$compartment)
 coh_ca <- as.numeric(all_ca_df[1,]$cohesion)
 gyrate_ca <- as.numeric(all_ca_df[1,]$gyrate)
+aw_gyrate_ca <- as.numeric(all_ca_df[1,]$aw_gyrate)
 
 # ====== compute change value ======
 ca_df$d_prot <- prot_ca - ca_df$prot
@@ -89,6 +95,7 @@ ca_df$d_clustering_coeff <- clus_ca - ca_df$clustering_coeff
 ca_df$d_compartment <- comp_ca - ca_df$compartment
 ca_df$d_cohesion <- coh_ca - ca_df$cohesion
 ca_df$d_gyrate <- gyrate_ca - ca_df$gyrate
+ca_df$d_aw_gyrate <- aw_gyrate_ca - ca_df$aw_gyrate
 
 # ======= compute all percent change values ======
 # the percentage of decrease in connectivity
@@ -108,11 +115,12 @@ ca_df$p_clustering_coeff <- 100*(clus_ca - ca_df$clustering_coeff)/ca_df$cluster
 ca_df$p_compartment <- 100*(comp_ca - ca_df$compartment)/ca_df$compartment
 ca_df$p_cohesion <- 100*(coh_ca - ca_df$cohesion)/ca_df$cohesion
 ca_df$p_gyrate <- 100*(gyrate_ca - ca_df$gyrate)/ca_df$gyrate
+ca_df$p_aw_gyrate <- 100*(aw_gyrate_ca - ca_df$aw_gyrate)/ca_df$aw_gyrate
 
 pchange_cols <- c('p_prot', 'p_nn_d', 'p_area_buff', 'p_prox', 'p_eca', 'p_flux', 'p_awf',
                 'p_pc', 'p_protconn', 'p_iic', 'p_bc', 'p_degree', 'p_clustering_coeff', 
-                'p_compartment','p_cohesion', 'p_gyrate')
-
+                'p_compartment','p_cohesion', 'p_gyrate', 'p_aw_gyrate')
+df_p <- ca_df[pchange_cols]
 # ====== prepare for viz ======
 curr_cols <- c("num_iter", "objectids_to_keep", "prot",
                "nn_d", "area_buff", "prox", "eca", "flux",
@@ -121,22 +129,31 @@ curr_cols <- c("num_iter", "objectids_to_keep", "prot",
                "protconn_within", "protconn_contig",
                "iic", "bc", 
                "degree", "clustering_coeff", "compartment","cohesion", "gyrate",
+               "aw_gyrate",
                "mean_patch_area", "mean_patch_peri", "mean_patch_shape", "total_edge",
                "edge_density"
 )
 
 metric_cols <- c("prot", "nn_d", "area_buff", "prox", "eca", "flux",
                  "awf", "pc", "protconn", "iic", "bc", 
-                 "degree", "clustering_coeff", "compartment","cohesion", "gyrate")
+                 "degree", "clustering_coeff", "compartment","cohesion", "gyrate",
+                 "aw_gyrate")
 # norm_cols <- lapply(metric_cols, function(x) paste0('norm_', x)) # --> list
 norm_cols <- paste0("norm_", unlist(metric_cols)) # --> character
 
-full_metric_cols <- c("Prot", "Nearest distance neighbor", "Habitat (area) within buffer",
+full_metric_cols <- c("Prot", "Nearest neighbor distance", "Habitat (area) within buffer",
                       "Proximity index", "Equivalent connected area", "Flux",
                       "Area weighted flux", "Probability of connectivity", "ProtConn",
                       "Integral index of connectivity", "Betweenness centrality",
                       "Node degree", "Clustering coefficient", "Compartmentalization",
-                      "Patch cohesion index", "Area weighted mean patch gyration")
+                      "Patch cohesion index", "Patch gyration",
+                      "Area weighted mean patch gyration")
+
+
+
+abr_metric_cols <- c("Prot", "Dist", "BA", "Prox", "ECA", "Flux", "AWF",
+                     "PC", "ProtConn", "IIC", "BC", "Degree", "ClusCoeff", "Compart",
+                     "Cohesion", "Gyrate", "AWGyrate")
 
 
 scale01 <- function(x){(x-min(x))/(max(x)-min(x))}
@@ -168,7 +185,8 @@ df_all_percentchange <- data.frame(row.names = c("value", "metric"))
 
 for (i in 1:length(metric_cols)) {
   metric <- metric_cols[i]
-  full_metric_name <- full_metric_cols[i]
+  #full_metric_name <- full_metric_cols[i]
+  full_metric_name <- abr_metric_cols[i]
   
   df_metric <- data.frame(ca_df[, metric])
   colnames(df_metric) <- c("value")
@@ -199,33 +217,59 @@ for (i in 1:length(metric_cols)) {
 
 # ====== step 1: agreement on highs and lows ======
 # ====== 1.1 pearson's correlation ======
-# for percent change
-new_cols <- c("Proximity index", "Nearest distance neighbor", "Compartmentalization", "Clustering coefficient",
-              "Flux", "Node degree", "Area weighted mean patch gyration", "Betweenness centrality",
-              "Area weighted flux", 
-              "Patch cohesion index", "Integral index of connectivity", "Probability of connectivity",
-              "Equivalent connected area", "ProtConn", "Habitat (area) within buffer", "Prot")
+
+#new_cols <- c("Proximity index", "Nearest neighbor distance", "Compartmentalization", "Clustering coefficient",
+#              "Flux", "Node degree", "Patch gyration",
+#              "Area weighted mean patch gyration", "Betweenness centrality",
+#              "Area weighted flux", 
+#              "Patch cohesion index", "Integral index of connectivity", "Probability of connectivity",
+#              "Equivalent connected area", "ProtConn", "Habitat (area) within buffer", "Prot")
 # FPC, hclust, AOE, alphabet
+
+new_cols <- c("Prox", "Dist", "Compart", "ClusCoeff", "Flux", "Degree", "Gyrate",
+              "AWGyrate", "BC", "AWF", "Cohesion", "IIC", "PC", "ECA", "ProtConn",
+              "BA", "Prot")
+
+# metric_by_mean = c("Compartmentalization", "Patch gyration", "Nearest neighbor distance",
+#                   "Node degree", "Patch cohesion index", "Clustering coefficient",
+#                   "Area weighted mean patch gyration", "Habitat (area) within buffer",
+#                   "Prot", "Integral index of connectivity", "Probability of connectivity",
+#                   "Equivalent connected area", "ProtConn", "Flux", "Area weighted flux",
+#                   "Proximity index", "Betweenness centrality")
+
+metric_by_mean = c('Compart', "Gyrate", "Dist", "Degree", "Cohesion", "ClusCoeff",
+                   "AWGyrate", "BA", "Prot", "IIC", "PC", "ECA", "ProtConn", "Flux",
+                   "AWF", "Prox", "BC")
+# for raw metric values
 df_v = ca_df[, metric_cols] # this is for metric values
-colnames(df_v) <- full_metric_cols
+colnames(df_v) <- abr_metric_cols
 df_v = df_v[, new_cols]
 sapply(df_v, class)
 # cor(df_v, method = "pearson")
 corrplot(cor(df_v), order = 'original', tl.col = 'black', tl.srt = 45)
 
+# for percent change
 df_p = ca_df[, pchange_cols]
-colnames(df_p) <- full_metric_cols
+colnames(df_p) <- abr_metric_cols
 df_p = df_p[, new_cols]
 corrplot(cor(df_p), order = 'original', tl.col = 'black', tl.srt = 45)
 
 rk_cols <- c()
+rk_p_cols <- c()
 for (x in metric_cols){
   rk_cols <- append(rk_cols, paste0("rk_", x))
-  }
+  rk_p_cols <- append(rk_p_cols, paste0("rk_p_", x))
+}
+
 df_r = ca_df[, rk_cols]
-colnames(df_r) <- full_metric_cols
+colnames(df_r) <- abr_metric_cols
 df_r <- df_r[, new_cols]
 corrplot(cor(df_r), order = 'original', tl.col = 'black', tl.srt = 45)
+
+df_p_r = ca_df[, rk_p_cols]
+colnames(df_p_r) <- abr_metric_cols
+df_p_r <- df_p_r[, new_cols]
+corrplot(cor(df_p_r), order = 'original', tl.col = 'black', tl.srt = 45)
 
 
 # for value
@@ -234,16 +278,64 @@ corrplot(cor(df_r), order = 'original', tl.col = 'black', tl.srt = 45)
 
 
 # ====== 1.2 pca ======
+dfpca <- read_csv('/Users/wenxinyang/Desktop/GitHub/TemporalChangeConn/results/pca.csv')
+colnames(dfpca)
+dfpca$...1 <- NULL
+rownames(dfpca) <- c("PC1", "PC2", "PC3")
 
+dfplotpca <- dfpca %>%
+  rownames_to_column() %>%
+  gather(Metric, Value, -rowname)
+
+colnames(dfplotpca)[1] <- 'PC'
+
+dfplotpca$PC <- factor(dfplotpca$PC[order(dfplotpca$Metric)])
+li_metric <- unique(dfplotpca$Metric)
+dfplotpca$Metric <- factor(dfplotpca$Metric, ordered = TRUE, levels = li_metric)
+
+ggplot(dfplotpca, aes(x = Metric, y = PC, fill = Value)) +
+  geom_tile() +
+  scale_fill_distiller(limits = c(-0.8, 0.8), palette = "RdBu", direction = 1) + 
+  geom_text(aes(label = round(Value, 2)), size = 4)
+
+  
+
+
+# ====== 1.3 hierarchical clustering on principal components (skip) =====
+df_v1 <- df_v
+df_v1$`Proximity index` <- NULL
+dftrans <- t(df_v1)
+pca <- PCA(dftrans, ncp = 3, graph = FALSE)
+hcpc <- HCPC(pca, graph = FALSE)
+fviz_dend(hcpc,
+          cex = 0.7,
+         palette = 'jco',
+          rect = TRUE, rect_fill = TRUE,
+          rect_border = 'jco',
+          labels_track_height = 0.8
+)
+
+d <- dist(t(df_v), method = 'euclidean')
+hc1 <- hclust(d, method = 'complete')
+plot(hc1, cex = 0.6, hang = -1)
+#view(USArrests)
+#print(pca)
+fviz_dend(hcpc)
+
+fviz_cluster(hcpc, repel = TRUE,
+             snow.clust.cent = TRUE,
+             palette = 'jco',
+             ggtheme = theme_minimal(),
+             main = 'Factor map')
 
 # ====== step 2: examine similarities in dsitribution ======
 # ====== 2.1.1 overlayed histograms ======
 
-df_all_metrics$metric <- factor(df_all_metrics$metric, levels = rev(new_cols))
-df_all_norm_metrics$metric <- factor(df_all_norm_metrics$metric, levels = rev(new_cols))
+df_all_metrics$metric <- factor(df_all_metrics$metric, levels = rev(metric_by_mean))
+df_all_norm_metrics$metric <- factor(df_all_norm_metrics$metric, levels = rev(metric_by_mean))
 
-df_all_percentchange$metric <- factor(df_all_percentchange$metric, levels = rev(new_cols))
-df_all_norm_percentchange$metric <- factor(df_all_norm_percentchange$metric, levels = rev(new_cols))
+df_all_percentchange$metric <- factor(df_all_percentchange$metric, levels = rev(metric_by_mean))
+df_all_norm_percentchange$metric <- factor(df_all_norm_percentchange$metric, levels = rev(metric_by_mean))
 
 
 ggplot(df_all_norm_metrics, aes(value, color = metric)) + geom_density(alpha = 0.2)
@@ -265,9 +357,14 @@ ggplot(df_all_norm_metrics, aes(x = value, y = metric, fill = metric)) +
   theme_ridges() + 
   theme(legend.position = "none")
 
-ggplot(df_all_percentchange, aes(x = value, y = metric, fill = metric)) +
+
+# dfplot1 = df_all_percentchange[metric_by_mean]
+colnames(df_all_percentchange) <- c("PercChange", "Metric")
+# change x, y axis label
+ggplot(df_all_percentchange, aes(x = PercChange, y = Metric, fill = Metric)) +
   geom_density_ridges() +
   theme_ridges() + 
+  scale_x_continuous(limits = c(-70,200)) + 
   theme(legend.position = "none")
 # ====== 2.2 Kolmogorov-Smirnov test ======
 # --> create a matrix out of it
@@ -291,7 +388,7 @@ rownames(df_ksp) = metric_cols
 
 for (i in 1:length(metric_cols)) {
   metric <- metric_cols[i]
-  full_metric_name <- full_metric_cols[i]
+  full_metric_name <- abr_metric_cols[i]
   
   p_metric <- paste0("p_", metric)
   
@@ -307,7 +404,7 @@ for (i in 1:length(metric_cols)) {
   for (j in 1:length(metric_cols)){
     if(TRUE) {
       metric2 <- metric_cols[j]
-      full_metric_name_j <- full_metric_cols[j]
+      full_metric_name_j <- abr_metric_cols[j]
       
       p_metric2 <- paste0("p_", metric2)
       
@@ -337,14 +434,14 @@ for (i in 1:length(metric_cols)) {
 }
 
 root_folder <- 'C:/Users/wyang80/Desktop/CONN_MEASURE/data/CA/results'
-write.table(df_ksval_pval, paste0(root_folder, '/value_ks_test_pvalues_1025_raw.csv'), sep = ',',
+write.table(df_ksval_pval, paste0(root_folder, '/value_ks_test_pvalues_1206_raw.csv'), sep = ',',
             row.names = FALSE)
-write.table(df_ksp_pval, paste0(root_folder, '/p_ks_test_pvalues_1025_raw.csv'), sep = ',',
+write.table(df_ksp_pval, paste0(root_folder, '/p_ks_test_pvalues_1206_raw.csv'), sep = ',',
             row.names = FALSE)
 
-write.table(df_ksval, paste0(root_folder, '/value_ks_test_statistic_1025_raw.csv'), sep = ',',
+write.table(df_ksval, paste0(root_folder, '/value_ks_test_statistic_1206_raw.csv'), sep = ',',
             row.names = FALSE)
-write.table(df_ksp, paste0(root_folder, '/p_ks_test_statistic_1025_raw.csv'), sep = ',',
+write.table(df_ksp, paste0(root_folder, '/p_ks_test_statistic_1206_raw.csv'), sep = ',',
             row.names = FALSE)
 
 reordered <- read.csv(paste0(root_folder, '/reordered_ks_pvalues_1024.csv'), sep = ',')
@@ -367,6 +464,19 @@ ggplot(longData, aes(x = Var2, y = Var1)) +
                      plot.title = element_text(size = 11))
 
 
-# ====== step 3: examine associations with network characteristics =====
-# ====== 3.1 pearson's correlation? ======
-# ====== 3.2 3D plots ======
+# ====== 2.3 Kullback-Leibler divergence test ======
+# first, rbind the two vectors
+# second, KL(rbind_result, unit = 'log')
+P <- c(.05, .1, .2, .05, .15, .25, .08, .12)
+Q <- c(.3, .1, .2, .1, .1, .02, .08, .1)
+x <- rbind(P,Q)
+KL(x, unit='log')
+
+df_1 <- df_p[c("Prox", "Dist")]
+sumProx <- sum(df_1$Prox)
+sumDist <- sum(df_1$Dist)
+df_1$Prox <- df_1$Prox/sumProx
+df_1$Dist <- df_1$Dist/sumDist
+mat_1 <- t(df_1)
+KL(mat_1, unit = 'log2')
+
