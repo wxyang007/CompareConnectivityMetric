@@ -1,5 +1,8 @@
 # Author: Wenxin Yang
 # Date: Sept, 2022
+# Input needed:
+# 1) Shapefile
+# 2) Near table
 
 # read in the packages
 library(sf)
