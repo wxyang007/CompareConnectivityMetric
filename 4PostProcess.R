@@ -7,19 +7,19 @@ library(RColorBrewer)
 library(tidyverse)
 library(factoextra)
 library(FactoMineR)
-library(philentropy)
 
 setwd('~/')
-wd <- file.path(getwd(), 'Desktop', 'GitHub','TemporalChangeConn')
+# wd <- file.path(getwd(), 'Desktop', 'AProtconn','data','CA')
 
 # setwd(wd)
 
 # on desktop
-# wd <- 'C:/Users/wyang80/Desktop/CONN_MEASURE/data/CA'
+wd <- 'C:/Users/wyang80/Desktop/CONN_MEASURE/data/CA'
 setwd(wd)
 
-# path_ca <- paste0(wd, '\\results\\100iterations_Oct16_final.csv')
-path_ca <- paste0(wd, '/results/100iterations_Dec06_rev.csv')
+path_ca <- paste0(wd, '\\results\\100iterations_Feb22_final.csv')
+#path_ca <- paste0(wd, '\\results\\100iterations_Dec06_rev.csv')
+#path_ca <- paste0(wd, '\\results\\Liberia_100iterations_Feb22_final.csv')
 ca_df <- read.table(path_ca, sep = ',')
 colnames(ca_df) <- ca_df[1,]
 ca_df <- ca_df[-1, ]
@@ -53,7 +53,8 @@ ca_df$aw_gyrate <- as.numeric(ca_df$aw_gyrate)
 
 # ca_df <- read.table('C:/Users/wyang80/Desktop/CONN_MEASURE/data/CA/results/100iterations_Oct16_final.csv', sep = ',')
 
-path_all_ca <- paste0(wd, '/results/ca.csv')
+path_all_ca <- paste0(wd, '\\results\\ca_Feb22.csv')
+#path_all_ca <- paste0(wd, '\\results\\Liberia_results_final.csv')
 all_ca_df <- read.table(path_all_ca, sep = ',')
 colnames(all_ca_df) <- all_ca_df[1,]
 all_ca_df <- all_ca_df[-1,]
@@ -120,7 +121,7 @@ ca_df$p_aw_gyrate <- 100*(aw_gyrate_ca - ca_df$aw_gyrate)/ca_df$aw_gyrate
 pchange_cols <- c('p_prot', 'p_nn_d', 'p_area_buff', 'p_prox', 'p_eca', 'p_flux', 'p_awf',
                 'p_pc', 'p_protconn', 'p_iic', 'p_bc', 'p_degree', 'p_clustering_coeff', 
                 'p_compartment','p_cohesion', 'p_gyrate', 'p_aw_gyrate')
-df_p <- ca_df[pchange_cols]
+
 # ====== prepare for viz ======
 curr_cols <- c("num_iter", "objectids_to_keep", "prot",
                "nn_d", "area_buff", "prox", "eca", "flux",
@@ -141,19 +142,16 @@ metric_cols <- c("prot", "nn_d", "area_buff", "prox", "eca", "flux",
 # norm_cols <- lapply(metric_cols, function(x) paste0('norm_', x)) # --> list
 norm_cols <- paste0("norm_", unlist(metric_cols)) # --> character
 
-full_metric_cols <- c("Prot", "Nearest neighbor distance", "Habitat (area) within buffer",
-                      "Proximity index", "Equivalent connected area", "Flux",
-                      "Area weighted flux", "Probability of connectivity", "ProtConn",
-                      "Integral index of connectivity", "Betweenness centrality",
-                      "Node degree", "Clustering coefficient", "Compartmentalization",
-                      "Patch cohesion index", "Patch gyration",
-                      "Area weighted mean patch gyration")
-
-
-
-abr_metric_cols <- c("Prot", "Dist", "BA", "Prox", "ECA", "Flux", "AWF",
-                     "PC", "ProtConn", "IIC", "BC", "Degree", "ClusCoeff", "Compart",
-                     "Cohesion", "Gyrate", "AWGyrate")
+#full_metric_cols <- c("Prot", "Nearest neighbor distance", "Habitat (area) within buffer",
+#                      "Proximity index", "Equivalent connected area", "Flux",
+#                      "Area weighted flux", "Probability of connectivity", "ProtConn",
+#                      "Integral index of connectivity", "Betweenness centrality",
+#                      "Node degree", "Clustering coefficient", "Compartmentalization",
+#                      "Patch cohesion index", "Patch gyration",
+#                      "Area weighted mean patch gyration")
+abbr_metric_cols <- c("Prot", "Dist", "BA", "Prox", "ECA", "Flux", "AWF", "PC", "ProtConn",
+                      "IIC", "BC", "Degree", "ClusCoeff", "Compart", "Cohesion", "Gyrate",
+                      "AWGyrate")
 
 
 scale01 <- function(x){(x-min(x))/(max(x)-min(x))}
@@ -186,7 +184,7 @@ df_all_percentchange <- data.frame(row.names = c("value", "metric"))
 for (i in 1:length(metric_cols)) {
   metric <- metric_cols[i]
   #full_metric_name <- full_metric_cols[i]
-  full_metric_name <- abr_metric_cols[i]
+  full_metric_name <- abbr_metric_cols[i]
   
   df_metric <- data.frame(ca_df[, metric])
   colnames(df_metric) <- c("value")
@@ -218,39 +216,33 @@ for (i in 1:length(metric_cols)) {
 # ====== step 1: agreement on highs and lows ======
 # ====== 1.1 pearson's correlation ======
 
-#new_cols <- c("Proximity index", "Nearest neighbor distance", "Compartmentalization", "Clustering coefficient",
-#              "Flux", "Node degree", "Patch gyration",
-#              "Area weighted mean patch gyration", "Betweenness centrality",
-#              "Area weighted flux", 
-#              "Patch cohesion index", "Integral index of connectivity", "Probability of connectivity",
-#              "Equivalent connected area", "ProtConn", "Habitat (area) within buffer", "Prot")
+new_cols <- c("Proximity index", "Nearest neighbor distance", "Compartmentalization", "Clustering coefficient",
+              "Flux", "Node degree", "Patch gyration",
+              "Area weighted mean patch gyration", "Betweenness centrality",
+              "Area weighted flux", 
+              "Patch cohesion index", "Integral index of connectivity", "Probability of connectivity",
+              "Equivalent connected area", "ProtConn", "Habitat (area) within buffer", "Prot")
 # FPC, hclust, AOE, alphabet
 
-new_cols <- c("Prox", "Dist", "Compart", "ClusCoeff", "Flux", "Degree", "Gyrate",
-              "AWGyrate", "BC", "AWF", "Cohesion", "IIC", "PC", "ECA", "ProtConn",
-              "BA", "Prot")
+abbr_cols <- c("Prox", "Dist", "Compart", "ClusCoeff", "Flux", "Degree", "AWGyrate", "BC",
+               "AWF", "Cohesion", "IIC", "PC", "ECA", "ProtConn", "BA", "Prot")
 
-# metric_by_mean = c("Compartmentalization", "Patch gyration", "Nearest neighbor distance",
-#                   "Node degree", "Patch cohesion index", "Clustering coefficient",
-#                   "Area weighted mean patch gyration", "Habitat (area) within buffer",
-#                   "Prot", "Integral index of connectivity", "Probability of connectivity",
-#                   "Equivalent connected area", "ProtConn", "Flux", "Area weighted flux",
-#                   "Proximity index", "Betweenness centrality")
+abbr_metric_by_mean <- c("Compart", "Gyrate", "Dist", "Degree", "Cohesion", "ClusCoeff",
+                         "AWGyrate", "BA", "Prot", "IIC", "PC", "ECA", "ProtConn", "Flux",
+                         "AWF", "Prox", "BC")
 
-metric_by_mean = c('Compart', "Gyrate", "Dist", "Degree", "Cohesion", "ClusCoeff",
-                   "AWGyrate", "BA", "Prot", "IIC", "PC", "ECA", "ProtConn", "Flux",
-                   "AWF", "Prox", "BC")
 # for raw metric values
 df_v = ca_df[, metric_cols] # this is for metric values
-colnames(df_v) <- abr_metric_cols
+colnames(df_v) <- full_metric_cols
 df_v = df_v[, new_cols]
+colnames(df_v) <- abbr_cols
 sapply(df_v, class)
 # cor(df_v, method = "pearson")
 corrplot(cor(df_v), order = 'original', tl.col = 'black', tl.srt = 45)
 
 # for percent change
 df_p = ca_df[, pchange_cols]
-colnames(df_p) <- abr_metric_cols
+colnames(df_p) <- full_metric_cols
 df_p = df_p[, new_cols]
 corrplot(cor(df_p), order = 'original', tl.col = 'black', tl.srt = 45)
 
@@ -262,12 +254,12 @@ for (x in metric_cols){
 }
 
 df_r = ca_df[, rk_cols]
-colnames(df_r) <- abr_metric_cols
+colnames(df_r) <- full_metric_cols
 df_r <- df_r[, new_cols]
 corrplot(cor(df_r), order = 'original', tl.col = 'black', tl.srt = 45)
 
 df_p_r = ca_df[, rk_p_cols]
-colnames(df_p_r) <- abr_metric_cols
+colnames(df_p_r) <- full_metric_cols
 df_p_r <- df_p_r[, new_cols]
 corrplot(cor(df_p_r), order = 'original', tl.col = 'black', tl.srt = 45)
 
@@ -278,30 +270,10 @@ corrplot(cor(df_p_r), order = 'original', tl.col = 'black', tl.srt = 45)
 
 
 # ====== 1.2 pca ======
-dfpca <- read_csv('/Users/wenxinyang/Desktop/GitHub/TemporalChangeConn/results/pca.csv')
-colnames(dfpca)
-dfpca$...1 <- NULL
-rownames(dfpca) <- c("PC1", "PC2", "PC3")
-
-dfplotpca <- dfpca %>%
-  rownames_to_column() %>%
-  gather(Metric, Value, -rowname)
-
-colnames(dfplotpca)[1] <- 'PC'
-
-dfplotpca$PC <- factor(dfplotpca$PC[order(dfplotpca$Metric)])
-li_metric <- unique(dfplotpca$Metric)
-dfplotpca$Metric <- factor(dfplotpca$Metric, ordered = TRUE, levels = li_metric)
-
-ggplot(dfplotpca, aes(x = Metric, y = PC, fill = Value)) +
-  geom_tile() +
-  scale_fill_distiller(limits = c(-0.8, 0.8), palette = "RdBu", direction = 1) + 
-  geom_text(aes(label = round(Value, 2)), size = 4)
-
-  
+# I am performing pca in python
 
 
-# ====== 1.3 hierarchical clustering on principal components (skip) =====
+# ====== 1.3 hierarchical clustering on principal components =====
 df_v1 <- df_v
 df_v1$`Proximity index` <- NULL
 dftrans <- t(df_v1)
@@ -331,11 +303,11 @@ fviz_cluster(hcpc, repel = TRUE,
 # ====== step 2: examine similarities in dsitribution ======
 # ====== 2.1.1 overlayed histograms ======
 
-df_all_metrics$metric <- factor(df_all_metrics$metric, levels = rev(metric_by_mean))
-df_all_norm_metrics$metric <- factor(df_all_norm_metrics$metric, levels = rev(metric_by_mean))
+df_all_metrics$metric <- factor(df_all_metrics$metric, levels = rev(abbr_metric_by_mean))
+df_all_norm_metrics$metric <- factor(df_all_norm_metrics$metric, levels = rev(abbr_metric_by_mean))
 
-df_all_percentchange$metric <- factor(df_all_percentchange$metric, levels = rev(metric_by_mean))
-df_all_norm_percentchange$metric <- factor(df_all_norm_percentchange$metric, levels = rev(metric_by_mean))
+df_all_percentchange$metric <- factor(df_all_percentchange$metric, levels = rev(abbr_metric_by_mean))
+df_all_norm_percentchange$metric <- factor(df_all_norm_percentchange$metric, levels = rev(abbr_metric_by_mean))
 
 
 ggplot(df_all_norm_metrics, aes(value, color = metric)) + geom_density(alpha = 0.2)
@@ -359,9 +331,10 @@ ggplot(df_all_norm_metrics, aes(x = value, y = metric, fill = metric)) +
 
 
 # dfplot1 = df_all_percentchange[metric_by_mean]
-colnames(df_all_percentchange) <- c("PercChange", "Metric")
-# change x, y axis label
-ggplot(df_all_percentchange, aes(x = PercChange, y = Metric, fill = Metric)) +
+dftest <- df_all_percentchange
+
+dftest[sapply(dftest, is.infinite)] <- 0
+ggplot(dftest, aes(x = value, y = metric, fill = metric)) +
   geom_density_ridges() +
   theme_ridges() + 
   scale_x_continuous(limits = c(-70,200)) + 
@@ -388,7 +361,7 @@ rownames(df_ksp) = metric_cols
 
 for (i in 1:length(metric_cols)) {
   metric <- metric_cols[i]
-  full_metric_name <- abr_metric_cols[i]
+  full_metric_name <- full_metric_cols[i]
   
   p_metric <- paste0("p_", metric)
   
@@ -404,7 +377,7 @@ for (i in 1:length(metric_cols)) {
   for (j in 1:length(metric_cols)){
     if(TRUE) {
       metric2 <- metric_cols[j]
-      full_metric_name_j <- abr_metric_cols[j]
+      full_metric_name_j <- full_metric_cols[j]
       
       p_metric2 <- paste0("p_", metric2)
       
@@ -464,19 +437,6 @@ ggplot(longData, aes(x = Var2, y = Var1)) +
                      plot.title = element_text(size = 11))
 
 
-# ====== 2.3 Kullback-Leibler divergence test ======
-# first, rbind the two vectors
-# second, KL(rbind_result, unit = 'log')
-P <- c(.05, .1, .2, .05, .15, .25, .08, .12)
-Q <- c(.3, .1, .2, .1, .1, .02, .08, .1)
-x <- rbind(P,Q)
-KL(x, unit='log')
-
-df_1 <- df_p[c("Prox", "Dist")]
-sumProx <- sum(df_1$Prox)
-sumDist <- sum(df_1$Dist)
-df_1$Prox <- df_1$Prox/sumProx
-df_1$Dist <- df_1$Dist/sumDist
-mat_1 <- t(df_1)
-KL(mat_1, unit = 'log2')
-
+# ====== step 3: examine associations with network characteristics =====
+# ====== 3.1 pearson's correlation? ======
+# ====== 3.2 3D plots ======

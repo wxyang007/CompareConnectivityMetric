@@ -9,7 +9,9 @@ from bioinfokit.visuz import cluster
 from pylab import savefig
 
 # ======== preparation ======
+# df = pd.read_csv(r'/Users/wenxinyang/Desktop/GitHub/TemporalChangeConn/results/100iterations_Feb22_final.csv')
 df = pd.read_csv(r'/Users/wenxinyang/Desktop/GitHub/TemporalChangeConn/results/100iterations_Dec06_rev.csv')
+# dfca = pd.read_csv(r'/Users/wenxinyang/Desktop/GitHub/TemporalChangeConn/results/ca_Feb22.csv')
 dfca = pd.read_csv(r'/Users/wenxinyang/Desktop/GitHub/TemporalChangeConn/results/ca.csv')
 
 cols = list(("prot", "nn_d", "area_buff", "prox", "eca", "flux",
@@ -146,7 +148,7 @@ loadings_val_df['variable'] = loadings_val_df.columns.values
 # plot
 
 cmap1 = sns.color_palette("coolwarm", as_cmap=True)
-# cmap2 = sns.diverging_palette(212, 346, as_cmap = True)
+#cmap2 = sns.diverging_palette(212, 346, as_cmap = True)
 cmap2 = sns.blend_palette(["#053061", "#fcfdfd", "#760d21"],10)
 plot_transpose_loadings_val = loadings_val_df[['pc1', 'pc2', 'pc3']].transpose()
 plot_transpose_loadings_val.columns = full_metric_cols

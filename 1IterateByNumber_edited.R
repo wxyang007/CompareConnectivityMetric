@@ -2,6 +2,11 @@
 # Date: Sept, 2022
 # Revised: Feb, 2023
 
+
+# all distances are meters
+# all areas are km2
+# unless the programs compute everything with the original files
+
 # read in the packages
 library(sf)
 library(raster)
@@ -22,23 +27,24 @@ setwd('~/')
 # setwd(wd)
 
 # on desktop
-wd <- 'C:/Users/wyang80/Desktop/CONN_MEASURE/data/Liberia'
+wd <- 'C:/Users/wyang80/Desktop/CONN_MEASURE/data/CA'
 setwd(wd)
-coneforfolder = 'C:/Users/wyang80/Desktop/CONN_MEASURE/data/Liberia/conefor_results'
+coneforfolder = 'C:/Users/wyang80/Desktop/CONN_MEASURE/data/CA/conefor_results_3'
+# conefor_results_3: relax the restriction on 10km in the near table
 
-shp <- read_sf('LiberiaPA/liberia_neighb_pa_final_mollwd.shp')
-shp <- st_zm(shp)
+#shp <- read_sf('LiberiaPA/liberia_neighb_pa_final_mollwd.shp')
+#shp <- st_zm(shp)
 # on desktop
-# shp <- read_sf('C:/Users/wyang80/Desktop/CONN_MEASURE/data/CA/ca_pa_file_fixed.shp')
-# summary(shp$OBJECTID)
+shp <- read_sf('C:/Users/wyang80/Desktop/CONN_MEASURE/data/CA/ca_pa_file_fixed.shp')
+summary(shp$OBJECTID)
 
-# ca_bound <- read_sf('ca-state-boundary/CA_State_TIGER2016.shp') # California
-ca_bound <- read_sf('LiberiaBound.shp') # Liberia
+ca_bound <- read_sf('ca-state-boundary/CA_State_TIGER2016.shp') # California
+#ca_bound <- read_sf('LiberiaBound.shp') # Liberia
 
 
 # filter out only the pas in CA, these are the patches to iterate with
-# ca_pa <- shp[which((shp$ifPA == 1) & (shp$STATEFP == '06')), ] # PAs of California
-ca_pa <- shp[which(shp$ISO3 == 'LBR'),] # PAs of Liberia
+ca_pa <- shp[which((shp$ifPA == 1) & (shp$STATEFP == '06')), ] # PAs of California
+#ca_pa <- shp[which(shp$ISO3 == 'LBR'),] # PAs of Liberia
 
 ca_bound_reproj <- st_transform(ca_bound, crs(ca_pa))
 # somehow filter out the inverse create new NAs, so have to export in GIS softwares
@@ -46,25 +52,40 @@ ca_bound_reproj <- st_transform(ca_bound, crs(ca_pa))
 # non_ca_pa <- shp[(shp$ifPA != 1) | (shp$STATEFP != '06'), ]
 # on my laptop
 # non_ca_pa <- read_sf('non_ca_pa/non_ca_pa.shp')
-# non_ca_pa$ifTarget = 0
-# non_ca_pa$ID = -1
+
 
 # on desktop
-# non_ca_pa <- read_sf('C:/Users/wyang80/Desktop/CONN_MEASURE/data/CA/non_ca_pa.shp')
+non_ca_pa <- read_sf('C:/Users/wyang80/Desktop/CONN_MEASURE/data/CA/non_ca_pa.shp')
+non_ca_pa$ID = -1
+#non_ca_pa <- shp[which(shp$ISO3 != 'LBR'),]
 
-non_ca_pa <- shp[which(shp$ISO3 != 'LBR'),]
 non_ca_pa$ifTarget = 0
-# ca_pa$ID <- 1:nrow(ca_pa)
+ca_pa$ID <- 1:nrow(ca_pa)
 n_ca_pa <- nrow(ca_pa)
 
 
 # read in the near table and keep only those smaller than 10km
-#ca_neartab <- read.csv('near_tab_CA.csv')
-ca_neartab <- read.csv('LiberiaPA/neartab_liberia_neighb.csv')
-ca_neartab <- ca_neartab[ca_neartab$NEAR_DIST <= 10000,]
+ca_neartab <- read.csv('near_tab_CA.csv')
+#ca_neartab <- read.csv('LiberiaPA/neartab_liberia_neighb.csv')
+#ca_neartab <- ca_neartab[ca_neartab$NEAR_DIST <= 10000,] # in the edited version, this line is not executed
+ca_neartab$OBJECTID <- NULL
+ca_neartab$NEAR_RANK <- NULL
+
+for (i in 1:nrow(ca_neartab)){
+  if(ca_neartab$IN_FID[i] > ca_neartab$NEAR_FID[i]){
+    id1 <- ca_neartab$IN_FID[i]
+    id2 <- ca_neartab$NEAR_FID[i]
+    ca_neartab$IN_FID[i] <- id2
+    ca_neartab$NEAR_FID[i] <- id1
+  }
+}
+#nrow(ca_neartab)
+ca_neartab <- unique(ca_neartab)
+
 
 # create a table to store all the iterations
 iters <- data.frame(matrix(ncol = 29, nrow = 0))
+
 colnames(iters) <- c("num_iter", "objectids_to_keep", "prot",
                      "nn_d", "area_buff", "prox", "eca", "flux",
                      "awf", "pc", "protconn", 
@@ -80,53 +101,62 @@ colnames(iters) <- c("num_iter", "objectids_to_keep", "prot",
 #=========Step2 iterate by number of patches ========
 n_iter = 100
 
-dat <- expand.grid(min(ca_pa$OBJECTID):max(ca_pa$OBJECTID),
-                   min(ca_pa$OBJECTID):max(ca_pa$OBJECTID),
-                   stringsAsFactors = FALSE)
+#dat <- expand.grid(min(ca_pa$OBJECTID):max(ca_pa$OBJECTID),
+#                   min(ca_pa$OBJECTID):max(ca_pa$OBJECTID),
+#                   stringsAsFactors = FALSE)
 
-for(x in 1:nrow(dat)) {
-  if(dat$Var1[x] > dat$Var2[x]) {
-    val_var1 <- dat$Var1[x]
-    val_var2 <- dat$Var2[x]
-    dat$Var1[x] <- val_var2
-    dat$Var2[x] <- val_var1
-  }
-  if(dat$Var1[x] == dat$Var2[x]) {
-    dat$Var1[x] <- 0
-  }
-}
+#for(x in 1:nrow(dat)) {
+#  if(dat$Var1[x] > dat$Var2[x]) {
+#    val_var1 <- dat$Var1[x]
+#    val_var2 <- dat$Var2[x]
+#    dat$Var1[x] <- val_var2
+#    dat$Var2[x] <- val_var1
+#  }
+#  if(dat$Var1[x] == dat$Var2[x]) {
+#    dat$Var1[x] <- 0
+#  }
+#}
 
-dat <- subset(dat, Var1 > 0)
+#dat <- subset(dat, Var1 > 0)
 
-dat <- dat[!duplicated(dat),]
+#dat <- dat[!duplicated(dat),]
 
+iters_result_path <- 'C:/Users/wyang80/Desktop/CONN_MEASURE/data/CA/results/100iterations_Dec06_rev.csv'
+iters_result <- read.csv(iters_result_path, sep = ",")
 
 # For every iteration, do the following:
-# for (n in 1:n_iter) {
-for (n in 1:nrow(dat)) {
+for (n in 1:n_iter) {   # for CA
+#for (n in 1:nrow(dat)) {  # for Liberia
   print(n)
   start.time <- Sys.time()
   
   # randomly drop 10% of the nodes
-  # OBJECTIDs_to_drop = sample(min(ca_pa$OBJECTID):max(ca_pa$OBJECTID), round(0.1*n_ca_pa), replace=F)
-  OBJECTIDs_to_drop <- c(dat$Var1[n], dat$Var2[n])
+  #OBJECTIDs_to_drop = sample(min(ca_pa$OBJECTID):max(ca_pa$OBJECTID), round(0.1*n_ca_pa), replace=F)
+  OBJECTIDs_to_keep = as.list(as.numeric(strsplit(iters_result[n,]$objectids_to_keep, ",")[[1]]))
+  #OBJECTIDs_to_keep <- unique(ca_pa$OBJECTID)
+  #OBJECTIDs_to_drop <- c(dat$Var1[n], dat$Var2[n])
   
   # PAs to keep
-  filtered_pa <- ca_pa[!ca_pa$OBJECTID %in% OBJECTIDs_to_drop, ]
+  filtered_pa <- ca_pa[ca_pa$OBJECTID %in% OBJECTIDs_to_keep, ]
+  #filtered_pa <- ca_pa[!ca_pa$OBJECTID %in% OBJECTIDs_to_drop, ]
   filtered_pa$ifTarget = 1
-  OBJECTIDs_to_keep = unique(filtered_pa$OBJECTID)
-  iters[nrow(iters) + 1, ]$num_iter = 1
-  iters[nrow(iters), ]$objectids_to_keep = paste(OBJECTIDs_to_keep, collapse = ',')
+  #OBJECTIDs_to_keep = unique(filtered_pa$OBJECTID)
+  iters[n, ]$num_iter = n
+  iters[n, ]$objectids_to_keep = paste(OBJECTIDs_to_keep, collapse = ',')
   
   # PAs dropped
-  dropped_pa <- ca_pa[ca_pa$OBJECTID %in% OBJECTIDs_to_drop, ]
-  
+  #dropped_pa <- ca_pa[ca_pa$OBJECTID %in% OBJECTIDs_to_drop, ]
+  dropped_pa <- ca_pa[!ca_pa$OBJECTID %in% OBJECTIDs_to_keep, ]
+  OBJECTIDs_to_drop <- unique(dropped_pa$OBJECTID)
+    
   # PAs to keep and non-PAs and transboundary PAs
+  #keptpa_and_nonpa <- rbind(filtered_pa, non_ca_pa)
   keptpa_and_nonpa <- rbind(filtered_pa, non_ca_pa)
   
   # PAs to keep and transboundary PAs
-  # all_only_pa <- keptpa_and_nonpa[keptpa_and_nonpa$ifPA == 1, ]
-  all_only_pa <- keptpa_and_nonpa
+  all_only_pa <- keptpa_and_nonpa[keptpa_and_nonpa$ifPA == 1, ]
+
+  #all_only_pa <- keptpa_and_nonpa
   OBJECTIDs_all_pas = unique(all_only_pa$OBJECTID)
   
   
@@ -152,7 +182,7 @@ for (n in 1:nrow(dat)) {
   nn_d <- aggregate(NEAR_DIST ~ IN_FID, all_only_pa_neartab, function(x) min(x))
   nn_d <- nn_d[nn_d$IN_FID %in% OBJECTIDs_to_keep, ]
   # summary(nn_d$NEAR_DIST)
-  iters[nrow(iters), ]$nn_d = mean(nn_d$NEAR_DIST)
+  iters[n, ]$nn_d = mean(nn_d$NEAR_DIST)
   
   #====metric vector 2: area of habitat within buffer====
   filtered_pa$int_area <- 0
@@ -178,7 +208,7 @@ for (n in 1:nrow(dat)) {
   # print(mean(intersected_area_buff))
   
   #iters_result[n, ]$area_buff_1 = mean(intersected_area_buff)
-  iters[nrow(iters), ]$area_buff = mean(intersected_area_buff)
+  iters[n, ]$area_buff = mean(intersected_area_buff)
   
   #====metric vector 3: proximity index====
   all_only_pa$prox <- proximity.index(all_only_pa, max.dist = 10000)
@@ -187,7 +217,7 @@ for (n in 1:nrow(dat)) {
   
   # print(mean(results_pa_prox))
   
-  iters[nrow(iters), ]$prox = mean(results_pa_prox)
+  iters[n, ]$prox = mean(results_pa_prox)
   
   #====metric vector 4: equivalent connected area [conefor]=====
   # the following code that calls conefor command line is adapted from Makurhini
@@ -197,13 +227,13 @@ for (n in 1:nrow(dat)) {
   # on desktop
   # coneforpath = 'C:/Users/wyang80/Desktop/Conefor_command_line/Conefor_Windows_32_and_64_bit/coneforWin64.exe'
   
-  #nodedf <- all_only_pa[c("OBJECTID", "AREA_GEO", "ifPA", "STATEFP")]
-  nodedf <- all_only_pa[c("OBJECTID", "AREA_GEO", "ISO3")]
-  #nodedf <- nodedf[nodedf$ifPA == 1, ]
-  nodedf <- nodedf[nodedf$ISO3 == "LBR", ]
-  # nodedf$AREA_GEO[which(nodedf$STATEFP != '06')] <- 0
-  nodedf$AREA_GEO[which(nodedf$ISO3 != "LBR")] <- 0
-  nodedf <- filtered_pa[c("OBJECTID", "AREA_GEO")]
+  nodedf <- all_only_pa[c("OBJECTID", "AREA_GEO", "ifPA", "STATEFP")]
+  #nodedf <- all_only_pa[c("OBJECTID", "AREA_GEO", "ISO3")]
+  nodedf <- nodedf[nodedf$ifPA == 1, ]
+  #nodedf <- nodedf[nodedf$ISO3 == "LBR", ]
+  nodedf$AREA_GEO[which(nodedf$STATEFP != '06')] <- 0
+  #nodedf$AREA_GEO[which(nodedf$ISO3 != "LBR")] <- 0
+  nodedf <- nodedf[c("OBJECTID", "AREA_GEO")]
   nodedf$geometry <- NULL
   
   nodesconefor <- unique(nodedf$OBJECTID)
@@ -247,13 +277,13 @@ for (n in 1:nrow(dat)) {
   protconn<- MK_ProtConn(filtered_pa, ca_bound_reproj, area_unit = "m2", distance = list(type = "edge"),
                   distance_thresholds = 10000, probability = 0.5, transboundary = 230000,
                   transboundary_type = "nodes", protconn_bound = FALSE)
-  iters[nrow(iters), ]$prot = protconn[1, ]$Percentage
-  iters[nrow(iters), ]$protconn = protconn[3, ]$Percentage
-  iters[nrow(iters), ]$protconn_prot = protconn[8, ]$Percentage
-  iters[nrow(iters), ]$protconn_trans = protconn[9, ]$Percentage
-  iters[nrow(iters), ]$protconn_unprot = protconn[10, ]$Percentage
-  iters[nrow(iters), ]$protconn_within = protconn[11, ]$Percentage
-  iters[nrow(iters), ]$protconn_contig = protconn[12, ]$Percentage
+  iters[n, ]$prot = protconn[1, ]$Percentage
+  iters[n, ]$protconn = protconn[3, ]$Percentage
+  iters[n, ]$protconn_prot = protconn[8, ]$Percentage
+  iters[n, ]$protconn_trans = protconn[9, ]$Percentage
+  iters[n, ]$protconn_unprot = protconn[10, ]$Percentage
+  iters[n, ]$protconn_within = protconn[11, ]$Percentage
+  iters[n, ]$protconn_contig = protconn[12, ]$Percentage
   
   # this script works but needs to be edited
   # what to edit: 1) rbind filtered_pa with ca-non-pas; 2) set protconn_bound to be TRUE;
@@ -266,7 +296,7 @@ for (n in 1:nrow(dat)) {
                                 distance_thresholds = 10000,
                                 probability = 0.5,
                                 write = NULL)
-  iters[nrow(iters), ]$bc = mean(centrality$BWC)
+  iters[n, ]$bc = mean(centrality$BWC)
   
   #====metric vector 9 and after: clustering coefficient and others====
   neartab_corr <- all_only_pa_neartab[all_only_pa_neartab$NEAR_DIST <= 10000, ]
@@ -278,12 +308,19 @@ for (n in 1:nrow(dat)) {
   r1 <- neartab_corr %>%
     group_by(IN_FID) %>%
     summarise(neighbors = list(NEAR_FID))
+  r2 <- neartab_corr %>%
+    group_by(NEAR_FID) %>%
+    summarise(neighbors = list(unique(IN_FID)))
+  r3 <- merge(r1, r2, by.x='IN_FID', by.y='NEAR_FID', all.x=TRUE, all.y=TRUE)
   
+  r3$neighbors <- apply(r3, 1, FUN = function(x) unique(append(x$neighbors.x, x$neighbors.y)))
+  r3$neighbors <- apply(r3, 1, FUN=function(x) x$neighbors[!is.na(x$neighbors)])
+  r3 <- r3[c('IN_FID', 'neighbors')]
   # do the calculations for all PAs (both within CA and its transboundary neighbors)
   # will throw these in the end
-  # pa_corr <- all_only_pa[c('OBJECTID', 'ifPA', 'ifTarget', 'AREA_GEO')]
-  pa_corr <- all_only_pa[c('OBJECTID', 'ISO3', 'AREA_GEO')]
-  tab_corr <- merge(pa_corr, r1, by.x = 'OBJECTID', by.y = 'IN_FID',
+  pa_corr <- all_only_pa[c('OBJECTID', 'ifPA', 'ifTarget', 'AREA_GEO')]
+  #pa_corr <- all_only_pa[c('OBJECTID', 'ISO3', 'AREA_GEO')]
+  tab_corr <- merge(pa_corr, r3, by.x = 'OBJECTID', by.y = 'IN_FID',
                     all.x = TRUE)
   tab_corr$geometry <- NULL
   # tab_corr <- tab_corr[tab_corr$ifPA == 1, ]
@@ -322,7 +359,7 @@ for (n in 1:nrow(dat)) {
     } else (l = length(li_ni))
     li_cni = list()
     m = 0
-    n = 0
+    q = 0
     
     # The following loop gets common neighbors
     # Specifically, it loops through every pair of neighbor patches of the target patch
@@ -350,14 +387,14 @@ for (n in 1:nrow(dat)) {
               } else {m = m + 0}
             }
             li_cni <- li_cni[!duplicated(li_cni)]
-            n = length(li_cni)
+            q = length(li_cni)
           }
         }
       }
     }
     tab_corr[ni, 5] = m # pairs of neighbors
     tab_corr[ni, 4] = l # num of neighbors
-    tab_corr[ni, 3] = n # common neighbors
+    tab_corr[ni, 3] = q # common neighbors
     # print(paste0(ni, ' pairs of neighbors: ', m, '. common neighbors: ', n))
   }
   
@@ -435,9 +472,9 @@ for (n in 1:nrow(dat)) {
   dfdegree <- tab_corr[c('OBJECTID', 'common_neighbors', 'num_neighbors', 'degree',
                              'clustering_coeff', 'compartmentalization')]
   
-  iters[nrow(iters), ]$degree = mean(dfdegree$degree)
-  iters[nrow(iters), ]$clustering_coeff = mean(dfdegree$clustering_coeff)
-  iters[nrow(iters), ]$compartment = mean(dfdegree$compartmentalization)
+  iters[n, ]$degree = mean(dfdegree$degree)
+  iters[n, ]$clustering_coeff = mean(dfdegree$clustering_coeff)
+  iters[n, ]$compartment = mean(dfdegree$compartmentalization)
 
   
   #=====2. Raster metrics computable in R=====
@@ -457,7 +494,7 @@ for (n in 1:nrow(dat)) {
   #====metric raster 1: patch cohesion index=====
   cohesion <- lsm_c_cohesion(ras_filtered_pa, directions = 8) # class level
   # how to account for edge effect
-  iters[nrow(iters), ]$cohesion = mean(cohesion$value)
+  iters[n, ]$cohesion = mean(cohesion$value)
   
   #====metric raster 2: area-weighted patch gyration====
   gyrate <- lsm_p_gyrate(ras_pa_id, directions = 8, cell_center = FALSE) # patch level
@@ -474,8 +511,8 @@ for (n in 1:nrow(dat)) {
   
   gyrate <- gyrate[gyrate$class %in% OBJECTIDs_to_keep, ]
   aw_gyrate <- aw_gyrate[aw_gyrate$class %in% OBJECTIDs_to_keep, ]
-  iters[nrow(iters), ]$gyrate = mean(gyrate$value)
-  iters[nrow(iters), ]$aw_gyrate = val_aw_gyrate
+  iters[n, ]$gyrate = mean(gyrate$value)
+  iters[n, ]$aw_gyrate = val_aw_gyrate
   
   
   
@@ -488,19 +525,19 @@ for (n in 1:nrow(dat)) {
   ras_dropped_pa <- rasterize(dropped_pa_to_ras, r1)
   # mean patch area
   mpa <- lsm_p_area(ras_dropped_pa, directions = 8)
-  iters[nrow(iters), ]$mean_patch_area = mean(mpa$value)
+  iters[n, ]$mean_patch_area = mean(mpa$value)
   # mean patch perimeter
   mpp <- lsm_p_perim(ras_dropped_pa, directions = 8)
-  iters[nrow(iters), ]$mean_patch_peri = mean(mpp$value)
+  iters[n, ]$mean_patch_peri = mean(mpp$value)
   # mean patch shape index 
   mpsi <- lsm_p_shape(ras_dropped_pa, directions = 8)
-  iters[nrow(iters), ]$mean_patch_shape = mean(mpsi$value)
+  iters[n, ]$mean_patch_shape = mean(mpsi$value)
   # total edge
   te <- lsm_c_te(ras_dropped_pa, directions = 8, count_boundary = FALSE)
-  iters[nrow(iters), ]$total_edge = mean(te$value)
+  iters[n, ]$total_edge = mean(te$value)
   # edge density
   ed <- lsm_c_ed(ras_dropped_pa, directions = 8, count_boundary = FALSE)
-  iters[nrow(iters), ]$edge_density = mean(ed$value)
+  iters[n, ]$edge_density = mean(ed$value)
   
   end.time <- Sys.time()
   time.taken <- end.time - start.time
@@ -508,7 +545,8 @@ for (n in 1:nrow(dat)) {
   
 }
 
-iterspath <- paste0(getwd(), '\\results\\100iterations_Oct16.csv')
+iterspath <- paste0(getwd(), '\\results\\100iterations_Feb22.csv')
+#iterspath <- paste0(getwd(), '\\results\\ca_Feb22.csv')
 write.csv(iters, iterspath, row.names = FALSE)
 
 #=========Step4 visualization========
