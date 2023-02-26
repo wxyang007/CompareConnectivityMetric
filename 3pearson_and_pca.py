@@ -10,9 +10,11 @@ from pylab import savefig
 
 # ======== preparation ======
 # df = pd.read_csv(r'/Users/wenxinyang/Desktop/GitHub/TemporalChangeConn/results/100iterations_Feb22_final.csv')
-df = pd.read_csv(r'/Users/wenxinyang/Desktop/GitHub/TemporalChangeConn/results/100iterations_Dec06_rev.csv')
+# df = pd.read_csv(r'/Users/wenxinyang/Desktop/GitHub/TemporalChangeConn/results/100iterations_Dec06_rev.csv')
+df = pd.read_csv(r'/Users/wenxinyang/Desktop/GitHub/TemporalChangeConn/results/Liberia_100iterations_Feb22_final.csv')
 # dfca = pd.read_csv(r'/Users/wenxinyang/Desktop/GitHub/TemporalChangeConn/results/ca_Feb22.csv')
-dfca = pd.read_csv(r'/Users/wenxinyang/Desktop/GitHub/TemporalChangeConn/results/ca.csv')
+# dfca = pd.read_csv(r'/Users/wenxinyang/Desktop/GitHub/TemporalChangeConn/results/ca.csv')
+dfca = pd.read_csv(r'/Users/wenxinyang/Desktop/GitHub/TemporalChangeConn/results/Liberia_results_final.csv')
 
 cols = list(("prot", "nn_d", "area_buff", "prox", "eca", "flux",
                  "awf", "pc", "protconn", "iic", "bc",
@@ -130,7 +132,8 @@ for f in cols:
     normalizeField(f)
 dfnormvals = df[normcols]
 
-x1 = dfnormvals.values
+dfnormvals_1 = dfnormvals.fillna(0)
+x1 = dfnormvals_1.values
 x1 = StandardScaler().fit_transform(x1)
 pca = PCA()
 principalComponentsval = pca.fit(x1)
@@ -152,7 +155,7 @@ cmap1 = sns.color_palette("coolwarm", as_cmap=True)
 cmap2 = sns.blend_palette(["#053061", "#fcfdfd", "#760d21"],10)
 plot_transpose_loadings_val = loadings_val_df[['pc1', 'pc2', 'pc3']].transpose()
 plot_transpose_loadings_val.columns = full_metric_cols
-plot_transpose_loadings_val.to_csv(r'/Users/wenxinyang/Desktop/GitHub/TemporalChangeConn/results/pca.csv')
+plot_transpose_loadings_val.to_csv(r'/Users/wenxinyang/Desktop/GitHub/TemporalChangeConn/results/Liberia_pca.csv')
 
 plt.figure(figsize = (10, 3))
 ax = sns.heatmap(plot_transpose_loadings_val, annot = True, cmap = cmap2, vmin = -0.6, vmax = 0.6)

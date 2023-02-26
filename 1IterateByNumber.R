@@ -61,7 +61,7 @@ n_ca_pa <- nrow(ca_pa)
 # read in the near table and keep only those smaller than 10km
 #ca_neartab <- read.csv('near_tab_CA.csv')
 ca_neartab <- read.csv('LiberiaPA/neartab_liberia_neighb.csv')
-ca_neartab <- ca_neartab[ca_neartab$NEAR_DIST <= 10000,]
+# ca_neartab <- ca_neartab[ca_neartab$NEAR_DIST <= 10000,] # in the edited version, this line is not executed
 
 # create a table to store all the iterations
 iters <- data.frame(matrix(ncol = 29, nrow = 0))
