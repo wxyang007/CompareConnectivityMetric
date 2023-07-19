@@ -1,0 +1,2 @@
+num_iter,objectids_to_keep,prot,nn_d,area_buff,prox,eca,flux,awf,pc,protconn,protconn_prot,protconn_unprot,protconn_trans,protconn_within,protconn_contig,iic,bc,degree,clustering_coeff,compartment,cohesion,gyrate,aw_gyrate
+,,16.0365,13946.3,549907075,11852979,59103.48036,1206.04,704990000,65614.9,5.1725,,,,,,56140.2,13.62437,0.004650983,0.3508762,0.4541546,98.38774,3798.754,46552.76
