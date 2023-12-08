@@ -1,7 +1,7 @@
 # Create figures -- ridgeline plots, descriptive stats, spaghetti plots, and PA size histograms
 # Author: Wenxin Yang
 # Date: April, 2023
-# Revised: July, 2023
+# Revised: July, 2023; November, 2023
 
 
 library(ggplot2)
@@ -10,33 +10,44 @@ library(RColorBrewer)
 library(viridis)
 library(moments)
 library(plotly)
+library(corrplot)
 
 
 # ====== Read in data =====
-path <- '/Users/wenxinyang/Desktop/GitHub/TemporalChangeConn/Results'
+path <- '/Users/wenxinyang/Desktop/GitHub/TemporalChangeConn/results/tables'
 setwd(path)
 cols_order <- c('num_iter', 
                 'prox', 'nn_d', 'compartment', 'clustering_coeff', 'flux', 
                 'degree',
-                'gyrate', 'bc', 'cohesion', 'area_buff', 'aw_gyrate', 'awf',
+                #'gyrate', 
+                'area_buff',
+                'bc', 'cohesion', 
+                #'area_buff',
+                'gyrate',
+                'aw_gyrate', 'awf',
                 'iic', 'pc', 'eca', 'protconn', 'prot')
 
 cols_annotmetric <- c('Prox', 'Dist', 'Compart', 'ClusCoeff','Flux',
-                      'Degree', 'Gyrate', 'BC', 'Cohesion', 'BA',
+                      'Degree', 
+                      #'Gyrate', 
+                      'BA',
+                      'BC', 'Cohesion', 
+                      #'BA',
+                      'Gyrate',
                       'AWGyrate', 'AWF', 'IIC', 'PC', 'ECA', 'ProtConn',
                       'Prot')
 
 # California
-dfca <- read.csv('California_100iterations_Jul18_final.csv')[cols_order]
-dfca0 <- read.csv('ca_Jul18.csv')[cols_order]
+dfca <- read.csv('California_100iterations_Jul21_final.csv')[cols_order]
+dfca0 <- read.csv('ca_Jul21.csv')[cols_order]
 
 # Liberia
-dflib <- read.csv('Liberia_100iterations_Jul18_final.csv')[cols_order]
-dflib0 <- read.csv('Liberia_results_Jul18_final.csv')[cols_order]
+dflib <- read.csv('Liberia_100iterations_Jul21_final.csv')[cols_order]
+dflib0 <- read.csv('Liberia_results_Jul21_final.csv')[cols_order]
 
 # Colombia
-dfcol <- read.csv('Colombia_100iterations_Jul19_final.csv')[cols_order]
-dfcol0 <- read.csv('Colombia_results_Jul18_final.csv')[cols_order]
+dfcol <- read.csv('Colombia_100iterations_Jul21_final.csv')[cols_order]
+dfcol0 <- read.csv('Colombia_results_Jul21_final.csv')[cols_order]
 
 
 # ====== prepare data for dist comparison - cor ======
@@ -84,12 +95,17 @@ dfall_cor_dist <- rbind(cor_ca_dist, cor_col_dist, cor_lib_dist)
 dfall_cor_dist[is.na(dfall_cor_dist)] <- 0
 
 
+
+# normalization
+scale01 <- function(x){(x-min(x))/(max(x)-min(x))}
 # ====== compute percent changes ======
 
 for (c in cols_order){
   if(c != 'num_iter'){
     percchangename = paste0('p_', c)
+    normvalname = paste0('norm_', c)
     
+    # compute percent change
     valca = as.numeric(dfca0[1, c])
     vallib = as.numeric(dflib0[1, c])
     valcol = as.numeric(dfcol0[1, c])
@@ -97,6 +113,11 @@ for (c in cols_order){
     dfca[, percchangename] = 100*(valca - dfca[, c])/dfca[, c]
     dflib[, percchangename] = 100*(vallib - dflib[, c])/dflib[, c]
     dfcol[, percchangename] = 100*(valcol - dfcol[, c])/dfcol[, c]
+    
+    # ====== normalization =======
+    dfca[, normvalname] = scale01(dfca[, c])
+    dflib[, normvalname] = scale01(dflib[, c])
+    dfcol[, normvalname] = scale01(dfcol[, c])
   }
 }
 
@@ -105,19 +126,70 @@ print(cols_metric)
 
 
 pcols_metric <- paste('p_', cols_metric, sep='')
+normcols_metric <- paste('norm_', cols_metric, sep='')
 
-dfpca <- dfca[pcols_metric]
+
+dfrca <- dfca[cols_metric] # raw values
+dfpca <- dfca[pcols_metric] # percent change values
+dfnca <- dfca[normcols_metric] # normalized raw values
+colnames(dfrca) <- cols_annotmetric
 colnames(dfpca) <- cols_annotmetric
+colnames(dfnca) <- cols_annotmetric
 
-dfplib <- dflib[pcols_metric]
-colnames(dfplib) <- cols_annotmetric
-
+dfrcol <- dfcol[cols_metric]
 dfpcol <- dfcol[pcols_metric]
+dfncol <- dfcol[normcols_metric]
+colnames(dfrcol) <- cols_annotmetric
 colnames(dfpcol) <- cols_annotmetric
+colnames(dfncol) <- cols_annotmetric
 
-dfpearsonca <- cor(dfca, method='pearson')
-dfpearsoncol <- cor(dfcol, method='pearson')
-dfpearsonlib <- cor(dflib, method='pearson')
+dfrlib <- dflib[cols_metric]
+dfplib <- dflib[pcols_metric]
+dfnlib <- dflib[normcols_metric]
+colnames(dfrlib) <- cols_annotmetric
+colnames(dfplib) <- cols_annotmetric
+colnames(dfnlib) <- cols_annotmetric
+
+# ======= produce pearson correlation matrix =======
+dfpearsonca <- cor(dfrca, method='pearson')
+dfnpearsonca <- cor(dfnca, method='pearson')
+corrplot(cor(dfpearsonca), 
+         type='lower', 
+         order = 'original', 
+         #tl.pos='n',            # to remove label names
+         tl.col = 'black', tl.srt = 45)
+corrplot(cor(dfnpearsonca), 
+         type='lower', 
+         order = 'original', 
+         #tl.pos='n',            # to remove label names
+         tl.col = 'black', tl.srt = 45)
+
+dfpearsoncol <- cor(dfrcol, method='pearson')
+dfnpearsoncol <- cor(dfncol, method='pearson')
+corrplot(cor(dfpearsoncol), 
+         type='lower', 
+         order = 'original', 
+         #tl.pos='n',            # to remove label names
+         tl.col = 'black', tl.srt = 45)
+corrplot(cor(dfnpearsoncol), 
+         type='lower', 
+         order = 'original', 
+         #tl.pos='n',            # to remove label names
+         tl.col = 'black', tl.srt = 45)
+
+dfpearsonlib <- cor(dfrlib, method='pearson')
+dfnpearsonlib <- cor(dfnlib, method='pearson')
+corrplot(cor(dfpearsonlib), 
+         type='lower', 
+         order = 'original', 
+         #tl.pos='n',            # to remove label names
+         tl.col = 'black', tl.srt = 45)
+corrplot(cor(dfnpearsonlib), 
+         type='lower', 
+         order = 'original', 
+         #tl.pos='n',            # to remove label names
+         tl.col = 'black', tl.srt = 45)
+
 
 # ===== produce dataframes for the ridgeline plots =====
 dfhistpca <- data.frame(row.names=c('value', 'metric'))
@@ -160,6 +232,7 @@ dfhistpca$metric <- factor(dfhistpca$metric, levels = rev(cols_annotmetric))
 dfhistplib$metric <- factor(dfhistplib$metric, levels = rev(cols_annotmetric))
 dfhistpcol$metric <- factor(dfhistpcol$metric, levels = rev(cols_annotmetric))
 
+# histograms of each metric
 ggplot()+
   geom_histogram(data=dfhistpca, aes(x=value), bins=50)+
   #geom_density(data=dfhistpca, aes(y=..density..*10))+
@@ -168,16 +241,31 @@ ggplot()+
   
 
 dfhistplib[dfhistplib==Inf] <- 0
-dfhistplib1 <- dfhistplib[dfhistplib$metric != 'Compart',]
-plt <- ggplot(dfhistpcol, aes(x=value, y=metric, fill=metric))+
+
+
+# define a dataframe to categorize metrics by their types
+col_metric <- c("Prot", "Cohesion", "Dist", "Gyrate", "AWGyrate", "BA", "Prox",
+                "BC", "Degree", "ClusCoeff", "Compart", "IIC",
+                "Flux", "AWF", "ECA", "PC", "ProtConn")
+col_type <- c(rep("1", times=7), rep("2", times=5), rep("3", times=5))
+df_metrictype <- data.frame(metric = col_metric,
+                            type = col_type)
+
+dfridgeca <- merge(x = dfhistpca, y = df_metrictype, by="metric")
+dfridgecol <- merge(x = dfhistpcol, y = df_metrictype, by="metric")
+dfridgelib <- merge(x = dfhistplib, y = df_metrictype, by="metric")
+
+#dfhistplib1 <- dfhistplib[dfhistplib$metric != 'Compart',]
+plt <- ggplot(dfridgelib, aes(x=value, y=metric, fill=type))+
   geom_density_ridges(alpha=0.6)+
   theme_ridges()+
-  scale_x_continuous(limits = c(-50,100)) + 
-  scale_fill_viridis(discrete=TRUE) +
-  scale_color_viridis(discrete=TRUE) +
+  scale_x_continuous(limits = c(-50,100)) +
+  scale_fill_manual(values=c("#3365A6","#7E8C0F","#F27F1B"))+
+  #scale_fill_viridis(discrete=TRUE) +
+  #scale_color_viridis(discrete=TRUE) +
   theme(legend.position = "none")
 plt
-ggsave('ridgeplot_col_07191.png',
+ggsave('ridgeplot_lib_1106.png',
        height=12, width=4,dpi=72,
        #plot=last_plot())
        plot=plt)
@@ -208,9 +296,9 @@ getsumtable <- function(df, outfile){
   write.csv(dfsumarea, outfile, row.names = FALSE)
 }
 
-getsumtable(dfpca, 'sum_ca_Jul18.csv')
-getsumtable(dfpcol, 'sum_col_Jul19.csv')
-getsumtable(dfplib, 'sum_lib_Jul18.csv')
+getsumtable(dfpca, 'sum_ca_Jul22.csv')
+getsumtable(dfpcol, 'sum_col_Jul22.csv')
+getsumtable(dfplib, 'sum_lib_Jul22.csv')
 
 
 # ====== test US ProtConn ======
@@ -320,7 +408,7 @@ col_scheme1 <- c('#c83753', '#37C8AC', '#6ba15e', '#0e3cf1', '#7a48b7','#f8078c'
 cols_sim1 <- c('AWF_Prot','IIC_Prot','PC_Prot','ECA_Prot','ProtConn_Prot'
                #,'Prox_Prot', 'Dist_Prot', 'Compart_Prot', 'ClusCoeff_Prot',
                #'Degree_Prot', 'Gyrate_Prot', 'BC_Prot', 'Cohesion_Prot'
-               ,'BA_Prot', 'AWGyrate_Prot'
+               ,'BA_Prot', 'AWGyrate_Prot',
                #, 'Flux_Prot'
                )
 dfsim1 <- dfrelmetric[dfrelmetric$MetricPair %in% cols_sim1, ]

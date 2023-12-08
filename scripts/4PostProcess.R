@@ -2,6 +2,7 @@
 # Author: Wenxin Yang
 # Date: Sept, 2022
 # Revised: July, 2023
+# Note: this is an outdated version of code, might not be useful
 
 
 library(readxl)

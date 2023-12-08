@@ -1,0 +1,2 @@
+num_iter,prot,nn_d,area_buff,prox,eca,flux,awf,pc,protconn,protconn_prot,protconn_unprot,protconn_trans,protconn_within,protconn_contig,iic,bc,degree,clustering_coeff,compartment,cohesion,gyrate,aw_gyrate,mean_patch_area,mean_patch_peri,mean_patch_shape,total_edge,edge_density
+1,12.6637,10748.41,1433.012,15016.73392,4767.993373,481.419,8685690,5224.83,4.9706,25.4635,25.4635,74.5365,3.7049,1.2657,4457.14,0.0625,0.08984375,0.1041667,0.8340445,97.46509,12411.22,15451.72,65500,177333.3333,1.846489753,0,0
